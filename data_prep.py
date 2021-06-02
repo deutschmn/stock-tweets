@@ -6,6 +6,7 @@ import numpy as np
 from tqdm.notebook import tqdm
 import json
 import os
+import itertools
 
 
 # %%
@@ -35,7 +36,7 @@ def load_tweets(min_followers=None, tweet_path="data/tweet/raw"):
     simple_tweets["text"] = tweets["text"].apply(lambda t: t.replace("\n", " "))
     simple_tweets["user_name"] = tweets["user"].apply(lambda u: u["name"])
     simple_tweets["user_followers"] = tweets["user"].apply(lambda u: u["followers_count"])
-    simple_tweets["sym"] = tweets["entities"].apply(lambda entities: ",".join(list(map(lambda s: s["text"], entities["symbols"]))))
+    simple_tweets["sym"] = tweets["entities"].apply(lambda entities: list(map(lambda s: s["text"], entities["symbols"])))
 
     return simple_tweets
 
@@ -54,8 +55,58 @@ def load_prices(price_path="data/price/preprocessed"):
         df["symbol"] = symbol.replace(".txt", "")
         dfs.append(df)
 
-    return pd.concat(dfs, axis=0)
+    prices = pd.concat(dfs, axis=0)
+    prices['date'] = pd.to_datetime(prices['date'])
+    prices = prices.set_index(['symbol', 'date'])
+    return prices
 
 # load_prices()
+
+
+# %%
+class Movement:
+    def __init__(self, tweets, stock, price, day):
+        self.tweets = tweets
+        self.stock = stock
+        self.price = price
+        self.day = day
+
+    def __repr__(self):
+        return f"Movement of {self.stock} on {self.day.date()}: {len(self.tweets)} tweet(s)"
+
+
+# %%
+def load_movements(min_tweets_day=None):
+    tweets = load_tweets()
+    prices = load_prices()
+    movements = []
+    missing_prices = []
+
+    for day in tqdm(prices.index.get_level_values('date').unique()):
+        day = pd.to_datetime(day)
+        todays_tweets = tweets[tweets['date'].dt.date == day]
+        todays_stocks = pd.unique(list(itertools.chain(*todays_tweets["sym"])))
+        for stock in todays_stocks:
+            rel_tweets = todays_tweets[todays_tweets["sym"].apply(lambda x: stock in x)]
+            try:
+                movements.append(Movement(rel_tweets, stock, prices.loc[stock, day], day))
+            except Exception as e:
+                missing_prices.append(e)
+
+    nr_movements = len(movements)
+
+    if min_tweets_day is not None:
+        movements = list(filter(lambda m: len(m.tweets) > min_tweets_day, movements))
+
+    print(f"Loaded {nr_movements} movements, returning {len(movements)}. Found no price for {len(missing_prices)}.")
+
+    return movements
+
+# load_movements()
+
+
+# %%
+# import matplotlib.pyplot as plt
+# plt.hist(list(map(lambda m: len(m.tweets), movements)), bins=100, range=(0,50))
 
 
