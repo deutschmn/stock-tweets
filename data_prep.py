@@ -1,15 +1,11 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
-# %%
 import pandas as pd
 import numpy as np
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import json
 import os
 import itertools
 
 
-# %%
 def load_tweets(min_followers=None, tweet_path="data/tweet/raw"):
     dfs = []
 
@@ -40,10 +36,7 @@ def load_tweets(min_followers=None, tweet_path="data/tweet/raw"):
 
     return simple_tweets
 
-# load_tweets(100000)
 
-
-# %%
 def load_prices(price_path="data/price/preprocessed"):
     dfs = []
     cols = ["date", "movement percent", "norm open price", "norm high price", "norm low price", "norm close price", "volume"]
@@ -60,10 +53,7 @@ def load_prices(price_path="data/price/preprocessed"):
     prices = prices.set_index(['symbol', 'date'])
     return prices
 
-# load_prices()
 
-
-# %%
 class Movement:
     def __init__(self, tweets, stock, price, day):
         self.tweets = tweets
@@ -75,9 +65,8 @@ class Movement:
         return f"Movement of {self.stock} on {self.day.date()}: {len(self.tweets)} tweet(s)"
 
 
-# %%
-def load_movements(min_tweets_day=None):
-    tweets = load_tweets()
+def load_movements(min_followers=None, min_tweets_day=None):
+    tweets = load_tweets(min_followers)
     prices = load_prices()
     movements = []
     missing_prices = []
@@ -101,12 +90,4 @@ def load_movements(min_tweets_day=None):
     print(f"Loaded {nr_movements} movements, returning {len(movements)}. Found no price for {len(missing_prices)}.")
 
     return movements
-
-# load_movements()
-
-
-# %%
-# import matplotlib.pyplot as plt
-# plt.hist(list(map(lambda m: len(m.tweets), movements)), bins=100, range=(0,50))
-
 

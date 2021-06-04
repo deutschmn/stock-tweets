@@ -1,0 +1,15 @@
+batch_size:
+  desc: Batch size to use for training
+  value: 32
+epochs:
+  desc: Number of epochs
+  value: 50
+transformer_model:
+  desc: Which Hugging Face transformer model to use
+  value: nlptown/bert-base-multilingual-uncased-sentiment
+train_size:
+  desc: Portion of data to use for training
+  value: 0.8
+val_size:
+  desc: Portion of data to use for validation
+  value: 0.1
