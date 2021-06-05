@@ -65,20 +65,23 @@ def main():
     X_val, X_test = train_test_split(rest, train_size=val_of_rest)
     train_ds = MovementDataset(X_train, config.transformer_model)
 
-    train_loader = DataLoader(train_ds, batch_size=config.batch_size, collate_fn=MovementDataset.coll_samples)
+    train_loader = DataLoader(train_ds, batch_size=config.batch_size, 
+                                collate_fn=MovementDataset.coll_samples)
 
-    model = MovementPredictor(config.transformer_model)
+    device = torch.device(config.device)
+    model = MovementPredictor(config.transformer_model, device, hidden_dim=config.hidden_dim, 
+                                freeze_transformer=config.freeze_transformer)
+    model.to(device)
+
     wandb.watch(model)
     
     optim = torch.optim.Adam(model.parameters())
     loss = nn.MSELoss()
 
-    # TODO train on GPU
-
     for epoch in tqdm(range(config.epochs)):
         for tweets, target in tqdm(train_loader):
             pred = model(tweets)
-            l = loss(pred, target)
+            l = loss(pred, target.to(device))
             wandb.log({'loss': l})
 
             l.backward()

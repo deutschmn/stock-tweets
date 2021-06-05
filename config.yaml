@@ -7,9 +7,18 @@ epochs:
 transformer_model:
   desc: Which Hugging Face transformer model to use
   value: nlptown/bert-base-multilingual-uncased-sentiment
+freeze_transformer:
+  desc: If true, freezes transformer weights, or fine-tune them otherwise
+  value: True
 train_size:
   desc: Portion of data to use for training
   value: 0.8
 val_size:
   desc: Portion of data to use for validation
   value: 0.1
+hidden_dim:
+  desc: Hidden dimension to use for the movement predictor
+  value: 32
+device:
+  desc: Which device to use for training
+  value: cuda:5
