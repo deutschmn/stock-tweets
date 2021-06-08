@@ -6,7 +6,7 @@ lr:
   value: 0.0001
 epochs:
   desc: Number of epochs
-  value: 50
+  value: 20
 transformer_model:
   desc: Which Hugging Face transformer model to use
   value: cardiffnlp/twitter-roberta-base-sentiment

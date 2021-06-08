@@ -49,7 +49,11 @@ def load_movements():
         movements = data_prep.load_movements(min_tweets_day=5)
         with open(cache_file, "wb") as f:
             pickle.dump(movements, f)
-    return movements
+
+    # filter out movements that are too small
+    return list(filter(lambda m: (m.price["movement percent"] < wandb.config.classify_threshold_down) 
+                                or (m.price["movement percent"] > wandb.config.classify_threshold_up), 
+                        movements))
 
 
 def classify_movement(m):
