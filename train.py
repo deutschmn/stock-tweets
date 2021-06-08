@@ -31,13 +31,11 @@ class MovementDataset(Dataset):
                             max_length=self.tweet_maxlen,
                             truncation=True)
 
-        return encd_tweets['input_ids'], encd_tweets['token_type_ids'], \
-            encd_tweets['attention_mask'], list(m.tweets["user_followers"]), \
-            m.price["movement percent"]
+        return encd_tweets, list(m.tweets["user_followers"]), m.price["movement percent"]
 
     def coll_samples(batch):
-        tweets = list(map(lambda x: x[0:4], batch))
-        prices = torch.stack(list(map(lambda x: torch.tensor(x[4]), batch))).float()
+        tweets = list(map(lambda x: x[0:2], batch))
+        prices = torch.stack(list(map(lambda x: torch.tensor(x[-1]), batch))).float()
         return tweets, prices
 
 
@@ -113,7 +111,8 @@ def main():
                                 collate_fn=MovementDataset.coll_samples)
 
     device = torch.device(config.device)
-    model = MovementPredictor(config.transformer_model, device, hidden_dim=config.hidden_dim, 
+    model = MovementPredictor(config.transformer_model, config.transformer_out, device, 
+                                hidden_dim=config.hidden_dim, 
                                 freeze_transformer=config.freeze_transformer)
     model.to(device)
     wandb.watch(model)

@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 class MovementPredictor(nn.Module):
-    def __init__(self, transformer_model, device, hidden_dim, freeze_transformer):
+    def __init__(self, transformer_model, transformer_out, device, hidden_dim, freeze_transformer):
         super().__init__()
         self.transformer = AutoModelForSequenceClassification.from_pretrained(transformer_model)
         
@@ -20,14 +20,14 @@ class MovementPredictor(nn.Module):
         )
 
         self.sentiment_classifier = nn.Sequential(
-            nn.Linear(self.transformer.classifier.out_features, hidden_dim),
+            nn.Linear(transformer_out, hidden_dim),
             nn.LeakyReLU(),
             nn.Linear(hidden_dim, 1),
         )
 
     def forward_movement(self, tweets):
-        tweets_encd = map(lambda x: x.to(self.device), tweets[0:3])
-        tweets_followers = torch.tensor(tweets[3], dtype=torch.float).unsqueeze(dim=-1).to(self.device)
+        tweets_encd = map(lambda x: x.to(self.device), tweets[0].values())
+        tweets_followers = torch.tensor(tweets[1], dtype=torch.float).unsqueeze(dim=-1).to(self.device)
 
         tweet_reps = self.transformer(*tweets_encd).logits
         follower_reps = self.follower_layer(tweets_followers)
