@@ -1,3 +1,6 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="10,11,12,13"
+
 from tqdm import tqdm
 from transformers import AutoTokenizer
 import torch
@@ -115,6 +118,9 @@ def main():
     device = torch.device(config.device)
     model = MovementPredictor(config.transformer_model, device, hidden_dim=config.hidden_dim, 
                                 freeze_transformer=config.freeze_transformer)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
     model.to(device)
     wandb.watch(model)
     
