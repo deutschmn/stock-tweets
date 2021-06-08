@@ -9,10 +9,10 @@ epochs:
   value: 50
 transformer_model:
   desc: Which Hugging Face transformer model to use
-  value: nlptown/bert-base-multilingual-uncased-sentiment
+  value: cardiffnlp/twitter-roberta-base-sentiment
 transformer_out:
   desc: The number of output values of the transformer
-  value: 5
+  value: 3
 freeze_transformer:
   desc: If true, freezes transformer weights, or fine-tune them otherwise
   value: True
