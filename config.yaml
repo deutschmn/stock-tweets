@@ -1,6 +1,9 @@
 batch_size:
-  desc: Batch size to use for training
+  desc: Batch size to use for train/val/test loading
   value: 32
+lr:
+  desc: Learning rate to use for Adam
+  value: 0.0001
 epochs:
   desc: Number of epochs
   value: 50

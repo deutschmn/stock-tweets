@@ -118,7 +118,7 @@ def main():
     model.to(device)
     wandb.watch(model)
     
-    optim = torch.optim.Adam(model.parameters())
+    optim = torch.optim.Adam(model.parameters(), lr=config.lr)
     loss = nn.MSELoss()
 
     for epoch in tqdm(range(config.epochs)):
