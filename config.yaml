@@ -9,9 +9,11 @@ epochs:
   value: 20
 transformer_model:
   desc: Which Hugging Face transformer model to use
+# value: nlptown/bert-base-multilingual-uncased-sentiment
   value: cardiffnlp/twitter-roberta-base-sentiment
 transformer_out:
   desc: The number of output values of the transformer
+# value: 5
   value: 3
 freeze_transformer:
   desc: If true, freezes transformer weights, or fine-tune them otherwise
@@ -33,4 +35,4 @@ classify_threshold_down:
   value: -0.005
 classify_threshold_up:
   desc: Threshold for when a course is classified as going UP
-  value: +0.0055
+  value: +0.007 # +0.0055

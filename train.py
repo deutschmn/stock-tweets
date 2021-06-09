@@ -7,6 +7,7 @@ from sklearn.metrics import mean_squared_error, accuracy_score, f1_score
 from torch.utils.data import Dataset, DataLoader
 import pickle
 import wandb
+import pandas as pd
 
 from model import MovementPredictor
 import data_prep
@@ -49,6 +50,12 @@ def load_movements():
         movements = data_prep.load_movements(min_tweets_day=5)
         with open(cache_file, "wb") as f:
             pickle.dump(movements, f)
+
+    # print some direction stats
+    directions = map(lambda m: -1 if (m.price["movement percent"] < wandb.config.classify_threshold_down) else 
+                               +1 if (m.price["movement percent"] > wandb.config.classify_threshold_up) else 0, movements)
+    print("Movement distribution:")
+    print(pd.Series(list(directions)).value_counts())
 
     # filter out movements that are too small
     return list(filter(lambda m: (m.price["movement percent"] < wandb.config.classify_threshold_down) 
