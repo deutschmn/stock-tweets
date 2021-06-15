@@ -36,3 +36,6 @@ classify_threshold_down:
 classify_threshold_up:
   desc: Threshold for when a course is classified as going UP
   value: +0.007 # +0.0055
+min_tweets_day:
+  desc: Minimum number of tweets about a stock on one day for a movement to be considered as a sample
+  value: 5

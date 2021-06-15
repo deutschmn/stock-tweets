@@ -49,7 +49,7 @@ def load_movements():
             movements = pickle.load(f)
     except:
         print("Couldn't load cached movements. Loading movements from original files.")
-        movements = data_prep.load_movements(min_tweets_day=5)
+        movements = data_prep.load_movements(min_tweets_day=wandb.config.min_tweets_day)
         with open(cache_file, "wb") as f:
             pickle.dump(movements, f)
 
