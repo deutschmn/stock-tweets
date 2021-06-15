@@ -29,7 +29,7 @@ hidden_dim:
   value: 32
 device:
   desc: Which device to use for training
-  value: cuda:5
+  value: ~
 classify_threshold_down:
   desc: Threshold for when a course is classified as going DOWN
   value: -0.005

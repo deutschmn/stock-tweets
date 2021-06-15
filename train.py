@@ -3,11 +3,13 @@ from transformers import AutoTokenizer
 import torch
 from torch import nn
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, accuracy_score, f1_score
+from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, r2_score
 from torch.utils.data import Dataset, DataLoader
 import pickle
 import wandb
 import pandas as pd
+
+import autogpu
 
 from model import MovementPredictor
 import data_prep
@@ -79,6 +81,7 @@ def compute_metrics(pred, target):
     return {
         "mse": mean_squared_error(target, pred, squared=True),
         "rmse": mean_squared_error(target, pred, squared=False),
+        "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
         "f1": f1_score(target_classes, pred_classes, average="micro")
     }
@@ -121,7 +124,8 @@ def main():
     test_loader = DataLoader(test_ds, batch_size=config.batch_size, 
                                 collate_fn=MovementDataset.coll_samples)
 
-    device = torch.device(config.device)
+    device = torch.device(config.device) if config.device else autogpu.freest()
+    
     model = MovementPredictor(config.transformer_model, config.transformer_out, device, 
                                 hidden_dim=config.hidden_dim, 
                                 freeze_transformer=config.freeze_transformer)
