@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import pickle
 import wandb
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import autogpu
 
@@ -76,33 +77,39 @@ def compute_metrics(pred, target):
     pred = pred.cpu().detach()
     target = target.cpu().detach()
     
+    # scatter plot of true x pred
+    plt.figure(figsize=(10,10))
+    plt.scatter(target, pred, alpha=0.3, s=5)
+    plt.xlabel('true')
+    plt.ylabel('pred')
+
     pred_classes = classify_movement(pred)
     target_classes = classify_movement(target)
+
     return {
         "mse": mean_squared_error(target, pred, squared=True),
         "rmse": mean_squared_error(target, pred, squared=False),
         "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
-        "f1": f1_score(target_classes, pred_classes, average="micro")
+        "f1": f1_score(target_classes, pred_classes, average="micro"),
+        "scatter": wandb.Image(plt)
     }
 
 
 def evaluate(model, loader, metric_prefix):
-    total_metrics = None
-    for tweets, target in tqdm(loader):
-        pred = model(tweets)
-        metrics = compute_metrics(pred, target)
-        
-        if total_metrics is None:
-            total_metrics = metrics
-        else:
-            for k, v in metrics.items():
-                total_metrics[k] += v
-    
-    # compute average over batches and add prefix to label
-    total_metrics = {metric_prefix + '_' + k: v / len(loader) for k, v in total_metrics.items()}
+    pred_list = []
+    target_list = []
 
-    return total_metrics
+    for tweets, target in tqdm(loader):
+        pred_list.append(model(tweets))
+        target_list.append(target)
+        
+    metrics = compute_metrics(torch.cat(pred_list), torch.cat(target_list))
+    
+    # add prefix to label
+    metrics = {metric_prefix + '_' + k: v for k, v in metrics.items()}
+
+    return metrics
 
 
 def main():
