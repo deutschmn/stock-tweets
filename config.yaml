@@ -39,3 +39,6 @@ classify_threshold_up:
 min_tweets_day:
   desc: Minimum number of tweets about a stock on one day for a movement to be considered as a sample
   value: 5
+time_lag:
+  desc: Number of days between tweets and supposed market reaction
+  value: 1

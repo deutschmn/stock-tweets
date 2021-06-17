@@ -5,9 +5,8 @@ from torch import nn
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, r2_score
 from torch.utils.data import Dataset, DataLoader
-import pickle
+
 import wandb
-import pandas as pd
 import matplotlib.pyplot as plt
 
 import autogpu
@@ -41,29 +40,6 @@ class MovementDataset(Dataset):
         tweets = list(map(lambda x: x[0:2], batch))
         prices = torch.stack(list(map(lambda x: torch.tensor(x[-1]), batch))).float()
         return tweets, prices
-
-
-def load_movements():
-    cache_file = "data/movements.pickle"
-    try:
-        with open(cache_file, "rb") as f:
-            movements = pickle.load(f)
-    except:
-        print("Couldn't load cached movements. Loading movements from original files.")
-        movements = data_prep.load_movements(min_tweets_day=wandb.config.min_tweets_day)
-        with open(cache_file, "wb") as f:
-            pickle.dump(movements, f)
-
-    # print some direction stats
-    directions = map(lambda m: -1 if (m.price["movement percent"] < wandb.config.classify_threshold_down) else 
-                               +1 if (m.price["movement percent"] > wandb.config.classify_threshold_up) else 0, movements)
-    print("Movement distribution:")
-    print(pd.Series(list(directions)).value_counts())
-
-    # filter out movements that are too small
-    return list(filter(lambda m: (m.price["movement percent"] < wandb.config.classify_threshold_down) 
-                                or (m.price["movement percent"] > wandb.config.classify_threshold_up), 
-                        movements))
 
 
 def classify_movement(m):
@@ -103,9 +79,9 @@ def evaluate(model, loader, metric_prefix):
     for tweets, target in tqdm(loader):
         pred_list.append(model(tweets))
         target_list.append(target)
-        
-    metrics = compute_metrics(torch.cat(pred_list), torch.cat(target_list))
     
+    metrics = compute_metrics(torch.cat(pred_list), torch.cat(target_list))
+
     # add prefix to label
     metrics = {metric_prefix + '_' + k: v for k, v in metrics.items()}
 
@@ -116,14 +92,19 @@ def main():
     wandb.init(project='stock-tweets', entity='deutschmann', config='config.yaml')
     config = wandb.config
 
-    movements = load_movements()
+    movements = data_prep.load_movements(wandb.config.classify_threshold_up, 
+                    wandb.config.classify_threshold_down, 
+                    min_followers=None, 
+                    min_tweets_day=wandb.config.min_tweets_day, 
+                    time_lag=wandb.config.time_lag)
+                    
     X_train, rest = train_test_split(movements, train_size=config.train_size)
     val_of_rest = config.val_size / (1 - config.train_size)
     X_val, X_test = train_test_split(rest, train_size=val_of_rest)
     
     train_ds = MovementDataset(X_train, config.transformer_model)
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, 
-                                collate_fn=MovementDataset.coll_samples)
+                                collate_fn=MovementDataset.coll_samples, shuffle=True)
     val_ds = MovementDataset(X_val, config.transformer_model)
     val_loader = DataLoader(val_ds, batch_size=config.batch_size, 
                                 collate_fn=MovementDataset.coll_samples)
