@@ -1,6 +1,9 @@
 batch_size:
   desc: Batch size to use for train/val/test loading
   value: 32
+optim:
+  desc: Name of torch.optim.* optimizer to use
+  value: SGD
 lr:
   desc: Learning rate to use for Adam
   value: 0.0001

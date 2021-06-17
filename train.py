@@ -49,15 +49,24 @@ def classify_movement(m):
     return classes
 
 
-def compute_metrics(pred, target):
-    pred = pred.cpu().detach()
-    target = target.cpu().detach()
-    
+def make_scatter(pred, target):
     # scatter plot of true x pred
     plt.figure(figsize=(10,10))
+
+    x = 0.15
+    plt.plot([-x,x],[-x,x], alpha=0.5, color="grey", linestyle="--")
+    plt.xlim(-x, x)
+    plt.ylim(-x, x)
+
     plt.scatter(target, pred, alpha=0.3, s=5)
     plt.xlabel('true')
     plt.ylabel('pred')
+    return wandb.Image(plt)
+
+
+def compute_metrics(pred, target):
+    pred = pred.cpu().detach()
+    target = target.cpu().detach()
 
     pred_classes = classify_movement(pred)
     target_classes = classify_movement(target)
@@ -68,19 +77,24 @@ def compute_metrics(pred, target):
         "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
         "f1": f1_score(target_classes, pred_classes, average="micro"),
-        "scatter": wandb.Image(plt)
+        "scatter": make_scatter(pred, target)
     }
 
 
-def evaluate(model, loader, metric_prefix):
+def evaluate(model, loader, criterion, device, metric_prefix):
     pred_list = []
     target_list = []
 
+    running_loss = 0.0
     for tweets, target in tqdm(loader):
-        pred_list.append(model(tweets))
+        pred = model(tweets)
+        running_loss += criterion(pred, target.to(device)).item()
+
+        pred_list.append(pred)
         target_list.append(target)
     
-    metrics = compute_metrics(torch.cat(pred_list), torch.cat(target_list))
+    metrics = compute_metrics(torch.cat(pred_list), torch.cat(target_list)) | \
+                                {'loss': running_loss / len(loader)}
 
     # add prefix to label
     metrics = {metric_prefix + '_' + k: v for k, v in metrics.items()}
@@ -120,25 +134,32 @@ def main():
     model.to(device)
     wandb.watch(model)
     
-    optim = torch.optim.Adam(model.parameters(), lr=config.lr)
-    loss = nn.MSELoss()
+    optim = getattr(torch.optim, config.optim)(model.parameters(), lr=config.lr)
+    criterion = nn.MSELoss()
 
     for epoch in tqdm(range(config.epochs)):
         model.train()
+
+        running_loss = 0.0
+
         for tweets, target in tqdm(train_loader, desc=f"epoch {epoch}"):
             pred = model(tweets)
-            l = loss(pred, target.to(device))
-            wandb.log({'train_loss': l})
-            l.backward()
+            loss = criterion(pred, target.to(device))
+            loss.backward()
             optim.step()
+        
+            running_loss += loss.item()
         
         model.eval()
         with torch.no_grad():
-            train_metrics = evaluate(model, train_loader, metric_prefix='train')
-            val_metrics = evaluate(model, val_loader, metric_prefix='val')
-            test_metrics = evaluate(model, test_loader, metric_prefix='test')
+            val_metrics = evaluate(model, val_loader, criterion, device, metric_prefix='val')
+            test_metrics = evaluate(model, test_loader, criterion, device, metric_prefix='test')
 
-            wandb.log({'epoch': epoch} | train_metrics | val_metrics | test_metrics)
+            wandb.log({'epoch': epoch, 'train_loss': running_loss / len(train_loader)} 
+                        | val_metrics | test_metrics)
+
+    train_metrics = evaluate(model, train_loader, criterion, device, metric_prefix='train')
+    wandb.log({'epoch': epoch} | train_metrics)
 
 
 if __name__ == "__main__":

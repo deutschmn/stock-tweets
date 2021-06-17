@@ -94,7 +94,7 @@ def load_movements_from_files(min_followers=None, min_tweets_day=None, time_lag=
 
 def load_movements(classify_threshold_up, classify_threshold_down, min_followers=None, 
                     min_tweets_day=None, time_lag=0):
-    cache_file = "data/movements.pickle"
+    cache_file = f"data/movements_{min_followers}_{min_tweets_day}_{time_lag}_.pickle"
     try:
         with open(cache_file, "rb") as f:
             movements = pickle.load(f)
