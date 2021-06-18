@@ -3,9 +3,9 @@ batch_size:
   value: 32
 optim:
   desc: Name of torch.optim.* optimizer to use
-  value: SGD
+  value: Adam
 lr:
-  desc: Learning rate to use for Adam
+  desc: Learning rate to use for the optimiser
   value: 0.0001
 epochs:
   desc: Number of epochs

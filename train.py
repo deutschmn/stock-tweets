@@ -137,6 +137,8 @@ def main():
     optim = getattr(torch.optim, config.optim)(model.parameters(), lr=config.lr)
     criterion = nn.MSELoss()
 
+    min_val_loss = float('inf')
+
     for epoch in tqdm(range(config.epochs)):
         model.train()
 
@@ -147,7 +149,7 @@ def main():
             loss = criterion(pred, target.to(device))
             loss.backward()
             optim.step()
-        
+
             running_loss += loss.item()
         
         model.eval()
@@ -157,6 +159,14 @@ def main():
 
             wandb.log({'epoch': epoch, 'train_loss': running_loss / len(train_loader)} 
                         | val_metrics | test_metrics)
+
+            if val_metrics['val_loss'] < min_val_loss:
+                print("New min val loss!")
+                min_val_loss = val_metrics['val_loss']
+
+                best_val_metrics = {'best_' + k: v for k, v in val_metrics.items()}
+                wandb.log({'epoch': epoch} | best_val_metrics)
+
 
     train_metrics = evaluate(model, train_loader, criterion, device, metric_prefix='train')
     wandb.log({'epoch': epoch} | train_metrics)
