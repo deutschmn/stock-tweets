@@ -167,6 +167,8 @@ def main():
                 best_val_metrics = {'best_' + k: v for k, v in val_metrics.items()}
                 wandb.log({'epoch': epoch} | best_val_metrics)
 
+                torch.save(model, f"artifacts/model_{wandb.run.name}.pt")
+
 
     train_metrics = evaluate(model, train_loader, criterion, device, metric_prefix='train')
     wandb.log({'epoch': epoch} | train_metrics)
