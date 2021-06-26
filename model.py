@@ -5,6 +5,7 @@ from torch import nn
 class MovementPredictor(nn.Module):
     def __init__(self, transformer_model, transformer_out, device, hidden_dim, freeze_transformer):
         super().__init__()
+        self.transformer_name = transformer_model
         self.transformer = AutoModelForSequenceClassification.from_pretrained(transformer_model)
         
         if freeze_transformer:
@@ -35,4 +36,4 @@ class MovementPredictor(nn.Module):
 
     def forward(self, tweets):
         tweet_sentiment = torch.stack(list(map(self.forward_movement, tweets)))
-        return self.sentiment_classifier(tweet_sentiment).squeeze()
+        return self.sentiment_classifier(tweet_sentiment).squeeze(dim=-1)

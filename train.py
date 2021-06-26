@@ -1,11 +1,12 @@
+from ctypes import ArgumentError
 from tqdm import tqdm
-from transformers import AutoTokenizer
 import torch
 from torch import nn
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, r2_score
-from torch.utils.data import Dataset, DataLoader
-
+from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, r2_score, confusion_matrix
+from torch.utils.data import DataLoader
+import seaborn as sn
+import pandas as pd
 import wandb
 import matplotlib.pyplot as plt
 
@@ -13,40 +14,24 @@ import autogpu
 
 from model import MovementPredictor
 import data_prep
+from data_loading import MovementDataset, classify_movement
 
 
-class MovementDataset(Dataset):
-    def __init__(self, movements, transformer_model, tweet_maxlen=100):
-        super()
-        self.movements = movements
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(transformer_model)
-        self.tweet_maxlen = tweet_maxlen
-
-    def __len__(self):
-        return len(self.movements)
-
-    def __getitem__(self, idx):
-        m = self.movements[idx]
-        encd_tweets = self.tokenizer(list(m.tweets["text"]), 
-                            return_tensors="pt", 
-                            padding="max_length", 
-                            max_length=self.tweet_maxlen,
-                            truncation=True)
-
-        return encd_tweets, list(m.tweets["user_followers"]), m.price["movement percent"]
-
-    def coll_samples(batch):
-        tweets = list(map(lambda x: x[0:2], batch))
-        prices = torch.stack(list(map(lambda x: torch.tensor(x[-1]), batch))).float()
-        return tweets, prices
-
-
-def classify_movement(m):
-    classes = torch.zeros_like(m)
-    classes[m > wandb.config.classify_threshold_up] = 1
-    classes[m < wandb.config.classify_threshold_down] = -1
-    return classes
+def get_criterion(loss_type):
+    if loss_type == 'regression':
+        reg_crit = nn.MSELoss()
+        def reg_criterion(input, target):
+            return reg_crit(input, target)
+        return reg_criterion
+    elif loss_type == 'classification':
+        class_crit = nn.BCEWithLogitsLoss()
+        def class_criterion(input, target):
+            return class_crit(input, classify_movement(target, 
+                                                        wandb.config.classify_threshold_up,
+                                                        wandb.config.classify_threshold_down))    
+        return class_criterion
+    else:
+        raise ArgumentError(f"Unknown loss type {loss_type}")
 
 
 def make_scatter(pred, target):
@@ -64,12 +49,30 @@ def make_scatter(pred, target):
     return wandb.Image(plt)
 
 
+def make_confusion(target_classes, pred_classes):
+    df_cm = pd.DataFrame(confusion_matrix(target_classes, pred_classes))
+    sn.heatmap(df_cm, annot=True, fmt='g')
+
+    plt.xlabel("pred")
+    plt.ylabel("true")
+    return wandb.Image(plt)
+
+
 def compute_metrics(pred, target):
     pred = pred.cpu().detach()
     target = target.cpu().detach()
-
-    pred_classes = classify_movement(pred)
-    target_classes = classify_movement(target)
+    
+    if wandb.config.loss_type == 'regression':
+        pred_classes = classify_movement(pred, wandb.config.classify_threshold_up,
+                                               wandb.config.classify_threshold_down)
+    elif wandb.config.loss_type == 'classification':
+        pred_classes = (torch.sigmoid(pred) > 0.5).int().float()
+        pred_classes = (torch.sigmoid(pred) > 0.5).int().float()
+    else:
+        raise ArgumentError(f"Unknown loss type {wandb.config.loss_type}")
+    
+    target_classes = classify_movement(target, wandb.config.classify_threshold_up,
+                                                wandb.config.classify_threshold_down)
 
     return {
         "mse": mean_squared_error(target, pred, squared=True),
@@ -77,7 +80,8 @@ def compute_metrics(pred, target):
         "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
         "f1": f1_score(target_classes, pred_classes, average="micro"),
-        "scatter": make_scatter(pred, target)
+        "scatter": make_scatter(pred, target),
+        "confusion": make_confusion(target_classes, pred_classes)
     }
 
 
@@ -135,7 +139,7 @@ def main():
     wandb.watch(model)
     
     optim = getattr(torch.optim, config.optim)(model.parameters(), lr=config.lr)
-    criterion = nn.MSELoss()
+    criterion = get_criterion(config.loss_type)
 
     min_val_loss = float('inf')
 
@@ -156,6 +160,10 @@ def main():
         with torch.no_grad():
             val_metrics = evaluate(model, val_loader, criterion, device, metric_prefix='val')
             test_metrics = evaluate(model, test_loader, criterion, device, metric_prefix='test')
+
+            if epoch % 5 == 0:
+                train_metrics = evaluate(model, train_loader, criterion, device, metric_prefix='train')
+                wandb.log({'epoch': epoch} | train_metrics )
 
             wandb.log({'epoch': epoch, 'train_loss': running_loss / len(train_loader)} 
                         | val_metrics | test_metrics)

@@ -3,3 +3,4 @@ prev
 .vscode
 __pycache__
 wandb
+artifacts
