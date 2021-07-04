@@ -32,8 +32,8 @@ val_size:
   desc: Portion of data to use for validation
   value: 0.1
 hidden_dim:
-  desc: Hidden dimension to use for the movement predictor
-  value: 32
+  desc: Hidden dimension to use for classification layer. If 0, no hidden layer is used
+  value: 0
 device:
   desc: Which device to use for training (~ for auto)
   value: ~
@@ -49,3 +49,6 @@ min_tweets_day:
 time_lag:
   desc: Number of days between tweets and supposed market reaction
   value: 1
+attention_input:
+  desc: which inputs to use for the attention ('followers', 'sentiment' or 'both')
+  value: both

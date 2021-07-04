@@ -166,6 +166,7 @@ def main():
         device,
         hidden_dim=config.hidden_dim,
         freeze_transformer=config.freeze_transformer,
+        attention_input=config.attention_input,
     )
     model.to(device)
     wandb.watch(model)

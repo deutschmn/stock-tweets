@@ -64,6 +64,7 @@ def analyse(run, values):
         return hook
 
     model.transformer.register_forward_hook(get_activation("transformer"))
+    model.attention.register_forward_hook(get_activation("attention"))
 
     ds = MovementDataset(movements, model.transformer_name)
     dl = DataLoader(
@@ -75,6 +76,7 @@ def analyse(run, values):
 
     for tweets, target in tqdm(dl):
         pred = model(tweets)
+        weights.append(activation["attention"].cpu().detach().squeeze().numpy())
         sentiments.append(
             torch.softmax(activation["transformer"].logits, dim=-1).cpu().numpy()
         )
