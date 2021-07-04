@@ -190,6 +190,7 @@ def main():
             optim.step()
 
             running_loss += loss.item()
+            wandb.log({"train_loss": loss.item()})
 
         model.eval()
         with torch.no_grad():
