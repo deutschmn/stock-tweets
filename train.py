@@ -1,23 +1,15 @@
 from ctypes import ArgumentError
 
 import autogpu
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sn
 import torch
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    mean_squared_error,
-    r2_score,
-)
+from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import data_prep
+import helper
 import wandb
 from data_loading import MovementDataset, classify_movement
 from model import MovementPredictor
@@ -49,30 +41,6 @@ def get_criterion(loss_type):
         raise ArgumentError(f"Unknown loss type {loss_type}")
 
 
-def make_scatter(pred, target):
-    # scatter plot of true x pred
-    plt.figure(figsize=(10, 10))
-
-    x = 0.15
-    plt.plot([-x, x], [-x, x], alpha=0.5, color="grey", linestyle="--")
-    plt.xlim(-x, x)
-    plt.ylim(-x, x)
-
-    plt.scatter(target, pred, alpha=0.3, s=5)
-    plt.xlabel("true")
-    plt.ylabel("pred")
-    return wandb.Image(plt)
-
-
-def make_confusion(target_classes, pred_classes):
-    df_cm = pd.DataFrame(confusion_matrix(target_classes, pred_classes))
-    sn.heatmap(df_cm, annot=True, fmt="g")
-
-    plt.xlabel("pred")
-    plt.ylabel("true")
-    return wandb.Image(plt)
-
-
 def compute_metrics(pred, target):
     pred = pred.cpu().detach()
     target = target.cpu().detach()
@@ -99,8 +67,8 @@ def compute_metrics(pred, target):
         "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
         "f1": f1_score(target_classes, pred_classes, average="macro"),
-        "scatter": make_scatter(pred, target),
-        "confusion": make_confusion(target_classes, pred_classes),
+        "scatter": helper.make_scatter(pred, target),
+        "confusion": helper.make_confusion(target_classes, pred_classes),
     }
 
 
