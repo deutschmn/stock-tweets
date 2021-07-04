@@ -98,7 +98,7 @@ def compute_metrics(pred, target):
         "rmse": mean_squared_error(target, pred, squared=False),
         "r2": r2_score(target, pred),
         "acc": accuracy_score(target_classes, pred_classes),
-        "f1": f1_score(target_classes, pred_classes, average="micro"),
+        "f1": f1_score(target_classes, pred_classes, average="macro"),
         "scatter": make_scatter(pred, target),
         "confusion": make_confusion(target_classes, pred_classes),
     }
@@ -220,7 +220,7 @@ def main():
                 best_val_metrics = {"best_" + k: v for k, v in val_metrics.items()}
                 wandb.log({"epoch": epoch} | best_val_metrics)
 
-                torch.save(model, f"artifacts/model_{wandb.run.name}.pt")
+                torch.save(model.state_dict(), f"artifacts/model_{wandb.run.name}.pt")
 
     train_metrics = evaluate(
         model, train_loader, criterion, device, metric_prefix="train"
