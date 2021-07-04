@@ -181,6 +181,8 @@ def main():
         running_loss = 0.0
 
         for tweets, target in tqdm(train_loader, desc=f"epoch {epoch}"):
+            optim.zero_grad()
+
             pred = model(tweets)
             loss = criterion(pred, target.to(device))
             loss.backward()
