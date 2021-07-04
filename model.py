@@ -1,17 +1,22 @@
-from transformers import AutoModelForSequenceClassification
 import torch
 from torch import nn
+from transformers import AutoModelForSequenceClassification
+
 
 class MovementPredictor(nn.Module):
-    def __init__(self, transformer_model, transformer_out, device, hidden_dim, freeze_transformer):
+    def __init__(
+        self, transformer_model, transformer_out, device, hidden_dim, freeze_transformer
+    ):
         super().__init__()
         self.transformer_name = transformer_model
-        self.transformer = AutoModelForSequenceClassification.from_pretrained(transformer_model)
-        
+        self.transformer = AutoModelForSequenceClassification.from_pretrained(
+            transformer_model
+        )
+
         if freeze_transformer:
             for p in self.transformer.parameters():
                 p.requires_grad = False
-        
+
         self.device = device
 
         self.follower_layer = nn.Sequential(
@@ -28,7 +33,9 @@ class MovementPredictor(nn.Module):
 
     def forward_movement(self, tweets):
         tweets_encd = map(lambda x: x.to(self.device), tweets[0].values())
-        tweets_followers = torch.tensor(tweets[1], dtype=torch.float).unsqueeze(dim=-1).to(self.device)
+        tweets_followers = (
+            torch.tensor(tweets[1], dtype=torch.float).unsqueeze(dim=-1).to(self.device)
+        )
 
         tweet_reps = self.transformer(*tweets_encd).logits
         follower_reps = self.follower_layer(tweets_followers)
