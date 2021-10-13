@@ -13,6 +13,7 @@ from tqdm import tqdm
 import data_prep
 import wandb
 from data_loading import MovementDataset, classify_movement
+from model import MovementPredictor
 
 
 def log_to_wandb(wandb_run, tweet_df, movement_df):
@@ -51,7 +52,19 @@ def analyse(run, values):
     )
     device = autogpu.freest()
 
-    model = torch.load(f"artifacts/model_{run}.pt", map_location=device)
+    model = MovementPredictor(
+        wandb_run.config["transformer_model"],
+        wandb_run.config["transformer_out"],
+        device,
+        hidden_dim=wandb_run.config["hidden_dim"],
+        freeze_transformer=wandb_run.config["freeze_transformer"],
+        attention_input=wandb_run.config["attention_input"],
+    ).to(device)
+    state_dict = torch.load(f"artifacts/model_{run}.pt", map_location=device)
+    model.load_state_dict(state_dict)
+
+    model.eval()
+
     model.device = device
 
     # add hocks for tracking activations
@@ -108,12 +121,29 @@ def analyse(run, values):
 
 
 def main():
-    run = "stellar-wind-175"
+    sweep_runs = [
+        #"lively-sweep-1",
+        #"rosy-sweep-2",
+        #"iconic-sweep-3",
+        #"fresh-sweep-4",
+        # "legendary-sweep-5",
+        # "olive-sweep-6",
+        "northern-sweep-7",
+        "effortless-sweep-8",
+        "sweepy-sweep-9",
+        "feasible-sweep-10",
+        "expert-sweep-11",
+        "exalted-sweep-12",
+    ]
+
+    # run = "stellar-wind-175"
     # labels = ["neg", "neutral", "pos"]
     # values = np.array([-1, 0, 1])[:, np.newaxis]
     values = np.array([1, 2, 3, 4, 5])[:, np.newaxis]
 
-    analyse(run, values)
+    for run in sweep_runs:
+        print(f"Analysing {run}...")
+        analyse(run, values)
 
 
 if __name__ == "__main__":

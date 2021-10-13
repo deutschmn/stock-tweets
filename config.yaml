@@ -1,6 +1,6 @@
 batch_size:
   desc: Batch size to use for train/val/test loading
-  value: 32
+  value: 1
 optim:
   desc: Name of torch.optim.* optimizer to use
   value: Adam
@@ -9,7 +9,7 @@ lr:
   value: 0.001
 epochs:
   desc: Number of epochs
-  value: 30
+  value: 15
 transformer_model:
   desc: Which Hugging Face transformer model to use
   value: nlptown/bert-base-multilingual-uncased-sentiment # (5 out) 12-layer, 768-hidden, 12-heads, 168M parameters
@@ -24,7 +24,7 @@ loss_type:
   value: classification
 freeze_transformer:
   desc: If true, freezes transformer weights, or fine-tune them otherwise
-  value: True
+  value: False
 train_size:
   desc: Portion of data to use for training
   value: 0.8
