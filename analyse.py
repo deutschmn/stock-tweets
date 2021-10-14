@@ -122,10 +122,10 @@ def analyse(run, values):
 
 def main():
     sweep_runs = [
-        #"lively-sweep-1",
-        #"rosy-sweep-2",
-        #"iconic-sweep-3",
-        #"fresh-sweep-4",
+        # "lively-sweep-1",
+        # "rosy-sweep-2",
+        # "iconic-sweep-3",
+        # "fresh-sweep-4",
         # "legendary-sweep-5",
         # "olive-sweep-6",
         "northern-sweep-7",
