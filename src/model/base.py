@@ -6,7 +6,11 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 from torchmetrics.collections import MetricCollection
+from torchmetrics.metric import Metric
 from transformers import AutoModelForSequenceClassification
+import wandb
+
+from src.util.plotting import plot_confusion
 
 
 class MovementPredictor(LightningModule, ABC):
@@ -147,7 +151,9 @@ class MovementPredictor(LightningModule, ABC):
         if (mode != "train") or (mode == "train" and batch_idx % 10 == 0):
             for metric_name, metric in metrics.items():
                 value = metric(pred, target)
-                self.log(name=f"{mode}/step/{metric_name}", value=value)
+                # confusion only logged on epoch end
+                if metric_name != "confusion_matrix":
+                    self.log(name=f"{mode}/step/{metric_name}", value=value)
 
         return loss
 
@@ -162,16 +168,40 @@ class MovementPredictor(LightningModule, ABC):
 
     def _epoch_end(self, training_step_outputs, mode, metrics):
         for metric_name, metric in metrics.items():
-            self.log(name=f"{mode}/full/{metric_name}", value=metric.compute())
+            if metric_name == "confusion_matrix":
+                self._log_confusion(mode, metric_name, metric, interval="full")
+            else:
+                self.log(name=f"{mode}/full/{metric_name}", value=metric.compute())
+
+    def _log_confusion(
+        self, mode: str, metric_name: str, metric: Metric, interval: str
+    ):
+        # workaround as PyTorch Lightning doesn't support logging imgs directly
+        wandb.log(
+            {
+                f"{mode}/{interval}/{metric_name}": wandb.Image(
+                    plot_confusion(
+                        metric.compute().detach().cpu().numpy(),
+                        confusion_type="absolute",
+                    )
+                )
+            }
+        )
 
     def training_epoch_end(self, training_step_outputs):
-        return self._epoch_end(training_step_outputs, mode="train", metrics=self.train_metrics)
+        return self._epoch_end(
+            training_step_outputs, mode="train", metrics=self.train_metrics
+        )
 
     def validation_epoch_end(self, training_step_outputs):
-        return self._epoch_end(training_step_outputs, mode="val", metrics=self.val_metrics)
+        return self._epoch_end(
+            training_step_outputs, mode="val", metrics=self.val_metrics
+        )
 
     def test_epoch_end(self, training_step_outputs):
-        return self._epoch_end(training_step_outputs, mode="test", metrics=self.test_metrics)
+        return self._epoch_end(
+            training_step_outputs, mode="test", metrics=self.test_metrics
+        )
 
     def configure_optimizers(self):
         return getattr(torch.optim, self.optim)(self.parameters(), lr=self.lr)

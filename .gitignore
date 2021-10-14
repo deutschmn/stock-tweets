@@ -4,3 +4,4 @@ prev
 __pycache__
 wandb
 artifacts
+*.ckpt

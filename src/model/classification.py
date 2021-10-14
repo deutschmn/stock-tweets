@@ -30,9 +30,8 @@ class ClassificationMovementPredictor(MovementPredictor):
     def setup_metrics(self) -> MetricCollection:
         num_classes = 2  # UP and DOWN
         
-        # TODO add back in scatter and confusion plotting, maybe using
+        # TODO add back in scatter plotting, maybe using
         # > "scatter": helper.make_scatter(pred, target),
-        # > "confusion": helper.make_confusion(target_classes, pred_classes),
 
         return MetricCollection(
             {
@@ -41,7 +40,7 @@ class ClassificationMovementPredictor(MovementPredictor):
                 "recall": Recall(num_classes=num_classes, average="macro"),
                 "f1_macro": F1(num_classes=num_classes, average="macro"),
                 "f1_micro": F1(num_classes=num_classes, average="micro"),
-                # "confusion_matrix": ConfusionMatrix(num_classes=num_classes),
+                "confusion_matrix": ConfusionMatrix(num_classes=num_classes),
             }
         )
 
