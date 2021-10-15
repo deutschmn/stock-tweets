@@ -1,6 +1,14 @@
 from torch import nn
 import torch
-from torchmetrics import Accuracy, Precision, Recall, F1, ConfusionMatrix, MetricCollection
+from torchmetrics import (
+    Accuracy,
+    Precision,
+    Recall,
+    F1,
+    ConfusionMatrix,
+    MetricCollection,
+    MatthewsCorrcoef,
+)
 from src.model.base import MovementPredictor
 
 
@@ -29,7 +37,7 @@ class ClassificationMovementPredictor(MovementPredictor):
 
     def setup_metrics(self) -> MetricCollection:
         num_classes = 2  # UP and DOWN
-        
+
         # TODO add back in scatter plotting, maybe using
         # > "scatter": helper.make_scatter(pred, target),
 
@@ -41,6 +49,7 @@ class ClassificationMovementPredictor(MovementPredictor):
                 "f1_macro": F1(num_classes=num_classes, average="macro"),
                 "f1_micro": F1(num_classes=num_classes, average="micro"),
                 "confusion_matrix": ConfusionMatrix(num_classes=num_classes),
+                "mcc": MatthewsCorrcoef(num_classes=num_classes),
             }
         )
 

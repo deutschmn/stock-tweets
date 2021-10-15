@@ -1,8 +1,8 @@
-from ctypes import ArgumentError
 from typing import Any
 from pytorch_lightning.core.lightning import LightningModule
 from abc import ABC, abstractmethod
 
+from loguru import logger
 import torch
 from torch import nn
 from torchmetrics.collections import MetricCollection
@@ -104,17 +104,21 @@ class MovementPredictor(LightningModule, ABC):
     def _step(self, batch: Any, batch_idx: int, mode: str, metrics: MetricCollection):
         tweets, target = batch
 
-        pred = self(tweets)
+        logits = self(tweets)
         target = self.preprocess_targets(target)
 
-        loss = self.loss(pred, target)
+        loss = self.loss(logits, target)
 
-        pred = self.postprocess_preds(pred)
+        pred = self.postprocess_preds(logits)
         target = self.postprocess_targets(target)
 
         self.log(f"{mode}/loss", loss.item())
 
         if (mode != "train") or (mode == "train" and batch_idx % 10 == 0):
+            logger.debug(f"{logits = }")
+            logger.debug(f"{torch.sigmoid(logits) = }")
+            logger.debug(f"{pred = }")
+            logger.debug(f"{target = }")
             for metric_name, metric in metrics.items():
                 value = metric(pred, target)
                 # confusion only logged on epoch end

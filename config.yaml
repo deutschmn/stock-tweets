@@ -9,7 +9,7 @@ trainer:
   log_every_n_steps: 1
 model:
   optim: AdamW
-  lr: 0.001
+  lr: 0.00001
   transformer_model: &hug_model nlptown/bert-base-multilingual-uncased-sentiment # (5 out) 12-layer, 768-hidden, 12-heads, 168M parameters
   # transformer_model: cardiffnlp/twitter-roberta-base-sentiment # (3 out) 12-layer, 768-hidden, 12-heads, 125M parameters
   # transformer_model: albert-base-v2 # (2 out) 12 repeating layers, 128 embedding, 768-hidden, 12-heads, 11M parameters
@@ -31,4 +31,4 @@ data:
   time_lag: 1
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed
-  num_workers: 1 # TODO set back to 32
+  num_workers: 32
