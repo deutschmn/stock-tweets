@@ -1,1 +1,1 @@
-from src.model.concrete import AttentionClassifier, AttentionRegressor
+from src.model.concrete import AttentionClassifier, AttentionRegressor, ConcatClassifier

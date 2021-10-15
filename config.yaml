@@ -6,6 +6,7 @@ trainer:
         project: stock-tweets
         log_model: false
   max_epochs: 15
+  log_every_n_steps: 1
 model:
   optim: AdamW
   lr: 0.001
@@ -14,13 +15,13 @@ model:
   # transformer_model: albert-base-v2 # (2 out) 12 repeating layers, 128 embedding, 768-hidden, 12-heads, 11M parameters
   transformer_out: 5
   freeze_transformer: False
-  hidden_dim: 0
+  hidden_dim: 64
   classify_threshold_down: &thres_down -0.005
   classify_threshold_up: &thres_up +0.007 # +0.0055
-  attention_input: both # followers # sentiment
-  tweet_max_len: 50 # 100 # TODO revisit
+  # attention_input: both # followers # sentiment
+  tweet_max_len: 512 # 100 # TODO revisit
 data:
-  batch_size: 1
+  batch_size: 8
   train_size: 0.8
   val_size: 0.1
   classify_threshold_down: *thres_down
