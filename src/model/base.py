@@ -8,6 +8,7 @@ from torch import nn
 from torchmetrics.collections import MetricCollection
 from torchmetrics.metric import Metric
 from transformers import AutoModelForSequenceClassification
+from transformers.models.auto.tokenization_auto import AutoTokenizer
 import wandb
 
 from src.util.plotting import plot_confusion
@@ -25,6 +26,7 @@ class MovementPredictor(LightningModule, ABC):
         hidden_dim: int,
         freeze_transformer: bool,
         attention_input: str,
+        tweet_max_len: int,
     ):
         """Inits the model
 
@@ -38,7 +40,7 @@ class MovementPredictor(LightningModule, ABC):
             hidden_dim (int): Hidden dimension to use for classification layer. If 0, no hidden layer is used
             freeze_transformer (bool): If true, freezes transformer weights, or fine-tune them otherwise
             attention_input (str): which inputs to use for the attention ('followers', 'sentiment' or 'both')
-
+            tweet_max_len (int): Length to which tweets are truncated or padded.
         """
         super().__init__()
 
@@ -47,6 +49,7 @@ class MovementPredictor(LightningModule, ABC):
         self.lr = lr
         self.classify_threshold_up = classify_threshold_up
         self.classify_threshold_down = classify_threshold_down
+        self.tweet_max_len = tweet_max_len
 
         self.loss = self.setup_loss()
 
@@ -55,6 +58,7 @@ class MovementPredictor(LightningModule, ABC):
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
 
+        self.tokenizer = AutoTokenizer.from_pretrained(transformer_model)
         self.transformer = AutoModelForSequenceClassification.from_pretrained(
             transformer_model
         )
@@ -111,13 +115,22 @@ class MovementPredictor(LightningModule, ABC):
     def setup_metrics(self) -> MetricCollection:
         pass
 
-    def _forward_movement(self, tweets):
-        tweets_encd = map(lambda x: x.to(self.device), tweets[0].values())
+    def _forward_movement(self, model_inputs):
+        tweets, followers = model_inputs
+
+        tweets_encd = self.tokenizer(
+            tweets,
+            return_tensors="pt",
+            padding="max_length",
+            max_length=self.tweet_max_len,
+            truncation=True,
+        ).to(self.device)
+
         tweets_followers = (
-            torch.tensor(tweets[1], dtype=torch.float).unsqueeze(dim=-1).to(self.device)
+            torch.tensor(followers, dtype=torch.float).unsqueeze(dim=-1).to(self.device)
         )
 
-        tweet_reps = self.transformer(*tweets_encd).logits
+        tweet_reps = self.transformer(**tweets_encd).logits
 
         if self.attention_input == "sentiment":
             attention_in = tweet_reps
@@ -131,8 +144,8 @@ class MovementPredictor(LightningModule, ABC):
         attention_weights = self.attention(attention_in)
         return torch.mm(tweet_reps.T, attention_weights).squeeze()
 
-    def forward(self, tweets):
-        tweet_sentiment = torch.stack(list(map(self._forward_movement, tweets)))
+    def forward(self, model_input):
+        tweet_sentiment = torch.stack(list(map(self._forward_movement, model_input)))
         return self.sentiment_classifier(tweet_sentiment).squeeze(dim=-1)
 
     def _step(self, batch: Any, batch_idx: int, mode: str, metrics: MetricCollection):

@@ -18,14 +18,13 @@ model:
   classify_threshold_down: &thres_down -0.005
   classify_threshold_up: &thres_up +0.007 # +0.0055
   attention_input: both # followers # sentiment
+  tweet_max_len: 50 # 100 # TODO revisit
 data:
   batch_size: 1
   train_size: 0.8
   val_size: 0.1
-  transformer_model: *hug_model
   classify_threshold_down: *thres_down
   classify_threshold_up: *thres_up
-  tweet_max_len: 50 # 100 # TODO revisit
   min_followers: 100  # TODO try multiple values
   min_tweets_day: 5
   time_lag: 1
