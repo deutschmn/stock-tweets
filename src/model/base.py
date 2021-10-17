@@ -12,6 +12,7 @@ from transformers.models.auto.tokenization_auto import AutoTokenizer
 import wandb
 
 from src.util.plotting import plot_confusion
+from src.model.transformer import TransformerConfig
 
 
 class MovementPredictor(LightningModule, ABC):
@@ -21,8 +22,7 @@ class MovementPredictor(LightningModule, ABC):
         lr: float,
         classify_threshold_up: float,
         classify_threshold_down: float,
-        transformer_model: str,
-        transformer_out: int,
+        transformer_config: TransformerConfig,
         hidden_dim: int,
         freeze_transformer: bool,
         tweet_max_len: int,
@@ -34,15 +34,14 @@ class MovementPredictor(LightningModule, ABC):
             lr (float): Learning rate to use for the optimiser
             classify_threshold_up (float): Threshold for when a course is classified as going UP
             classify_threshold_down (float): Threshold for when a course is classified as going DOWN
-            transformer_model (str): Which Hugging Face transformer model to use
-            transformer_out (int): The number of output values of the transformer
+            transformer_config (TransformerConfig): Config for the transformer
             hidden_dim (int): Hidden dimension to use for classification layer. If 0, no hidden layer is used
             freeze_transformer (bool): If true, freezes transformer weights, or fine-tune them otherwise
             tweet_max_len (int): Length to which tweets are truncated or padded.
         """
         super().__init__()
 
-        self.transformer_name = transformer_model
+        self.transformer_config = transformer_config
         self.optim = optim
         self.lr = lr
         self.classify_threshold_up = classify_threshold_up
@@ -56,9 +55,9 @@ class MovementPredictor(LightningModule, ABC):
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(transformer_model)
+        self.tokenizer = AutoTokenizer.from_pretrained(transformer_config.hugging_face_name)
         self.transformer = AutoModelForSequenceClassification.from_pretrained(
-            transformer_model
+            transformer_config.hugging_face_name
         )
 
         if freeze_transformer:
@@ -67,12 +66,12 @@ class MovementPredictor(LightningModule, ABC):
 
         if hidden_dim > 0:
             self.sentiment_classifier = nn.Sequential(
-                nn.Linear(transformer_out, hidden_dim),
+                nn.Linear(transformer_config.out_dim, hidden_dim),
                 nn.LeakyReLU(),
                 nn.Linear(hidden_dim, 1),
             )
         else:
-            self.sentiment_classifier = nn.Linear(transformer_out, 1)
+            self.sentiment_classifier = nn.Linear(transformer_config.out_dim, 1)
 
     @abstractmethod
     def setup_loss(self) -> nn.Module:

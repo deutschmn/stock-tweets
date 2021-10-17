@@ -10,16 +10,13 @@ trainer:
 model:
   optim: AdamW
   lr: 0.00001
-  transformer_model: &hug_model nlptown/bert-base-multilingual-uncased-sentiment # (5 out) 12-layer, 768-hidden, 12-heads, 168M parameters
-  # transformer_model: cardiffnlp/twitter-roberta-base-sentiment # (3 out) 12-layer, 768-hidden, 12-heads, 125M parameters
-  # transformer_model: albert-base-v2 # (2 out) 12 repeating layers, 128 embedding, 768-hidden, 12-heads, 11M parameters
-  transformer_out: 5
+  transformer_config: 
+    class_path: src.model.transformer.BertBaseMultilingualUncasedSentiment
   freeze_transformer: False
   hidden_dim: 64
   classify_threshold_down: &thres_down -0.005
   classify_threshold_up: &thres_up +0.007 # +0.0055
-  # attention_input: both # followers # sentiment
-  tweet_max_len: 512 # 100 # TODO revisit
+  tweet_max_len: 512
 data:
   batch_size: 8
   train_size: 0.8

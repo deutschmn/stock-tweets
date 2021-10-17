@@ -1,0 +1,1 @@
+export TOKENIZERS_PARALLELISM="false"; export CUDA_VISIBLE_DEVICES="2,3,4,5,6,7,8,9,10,11,12,13,14,15"; python -m src.experiments.classifier_concat --config=configs/concat.yaml --trainer.gpus=1

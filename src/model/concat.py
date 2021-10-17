@@ -1,4 +1,5 @@
 from src.model.base import MovementPredictor
+from src.model.transformer import TransformerConfig
 
 
 class ConcatMovementPredictor(MovementPredictor):
@@ -8,8 +9,7 @@ class ConcatMovementPredictor(MovementPredictor):
         lr: float,
         classify_threshold_up: float,
         classify_threshold_down: float,
-        transformer_model: str,
-        transformer_out: int,
+        transformer_config: TransformerConfig,
         hidden_dim: int,
         freeze_transformer: bool,
         tweet_max_len: int,
@@ -24,8 +24,7 @@ class ConcatMovementPredictor(MovementPredictor):
             lr,
             classify_threshold_up,
             classify_threshold_down,
-            transformer_model,
-            transformer_out,
+            transformer_config,
             hidden_dim,
             freeze_transformer,
             tweet_max_len,

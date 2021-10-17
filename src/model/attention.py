@@ -3,6 +3,7 @@ import torch
 from torch import nn
 
 from src.model.base import MovementPredictor
+from src.model.transformer import TransformerConfig
 
 
 class AttentionMovementPredictor(MovementPredictor):
@@ -12,8 +13,7 @@ class AttentionMovementPredictor(MovementPredictor):
         lr: float,
         classify_threshold_up: float,
         classify_threshold_down: float,
-        transformer_model: str,
-        transformer_out: int,
+        transformer_config: TransformerConfig,
         hidden_dim: int,
         freeze_transformer: bool,
         tweet_max_len: int,
@@ -28,8 +28,7 @@ class AttentionMovementPredictor(MovementPredictor):
             lr,
             classify_threshold_up,
             classify_threshold_down,
-            transformer_model,
-            transformer_out,
+            transformer_config,
             hidden_dim,
             freeze_transformer,
             tweet_max_len,
@@ -38,11 +37,11 @@ class AttentionMovementPredictor(MovementPredictor):
         self.attention_input = attention_input
 
         if attention_input == "sentiment":
-            attention_in_dim = transformer_out
+            attention_in_dim = transformer_config.out_dim
         elif attention_input == "followers":
             attention_in_dim = 1
         elif attention_input == "both":
-            attention_in_dim = transformer_out + 1
+            attention_in_dim = transformer_config.out_dim + 1
         else:
             raise ArgumentError(f"Unknown attention input {attention_input}")
 
