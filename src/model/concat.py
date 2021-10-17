@@ -1,3 +1,8 @@
+from typing import List
+
+from loguru import logger
+import torch
+
 from src.model.base import MovementPredictor
 from src.model.transformer import TransformerConfig
 
@@ -43,8 +48,20 @@ class ConcatMovementPredictor(MovementPredictor):
             padding="max_length",
             max_length=self.tweet_max_len,
             truncation=True,
+            return_offsets_mapping=True,
         ).to(self.device)
+
+        offset_mapping = tweets_encd.pop("offset_mapping")
+        self._log_portion_used(offset_mapping, tweets)
 
         tweet_sentiment = self.transformer(**tweets_encd).logits
 
         return self.sentiment_classifier(tweet_sentiment).squeeze(dim=-1)
+
+    def _log_portion_used(self, offset_mapping: torch.Tensor, tweets: List[str]):
+        """Logs which portions of the tweets are used, i.e., not truncated"""
+
+        used = offset_mapping.view(offset_mapping.size(0), -1).max(dim=1).values
+        total = torch.tensor([len(t) for t in tweets], device=self.device)
+        portion_used = used / total
+        logger.debug(f"{portion_used = }")
