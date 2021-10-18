@@ -5,8 +5,9 @@ trainer:
       init_args:
         project: stock-tweets
         log_model: false
-  max_epochs: 15
+  max_epochs: 50
   log_every_n_steps: 1
+  gpus: 1
 model:
   optim: AdamW
   lr: 0.00001
@@ -23,8 +24,8 @@ data:
   val_size: 0.1
   classify_threshold_down: *thres_down
   classify_threshold_up: *thres_up
-  min_followers: 100  # TODO try multiple values
-  min_tweets_day: 5
+  min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
+  min_tweets_day: 0 # should be 0 for comparison, makes training easier (likely because less data)
   time_lag: 1
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed
