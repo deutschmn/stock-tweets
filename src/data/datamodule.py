@@ -3,13 +3,13 @@ import json
 import os
 import itertools
 import pickle
+import re
 
 import pandas as pd
 import torch
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from pytorch_lightning.core.datamodule import LightningDataModule
 
 from src.data.dataset import MovementDataset
@@ -63,6 +63,14 @@ class MovementDataModule(LightningDataModule):
         self.val_ds: Optional[MovementDataset] = None
         self.test_ds: Optional[MovementDataset] = None
 
+    def _clean_tweet(self, tweet: str):
+        clean = tweet
+
+        clean = clean.replace("\n", " ")  # remove new lines
+        clean = re.sub(r"http\S+", "", clean)  # remove urls
+
+        return clean
+
     def _load_tweets(self) -> pd.DataFrame:
         dfs = []
 
@@ -89,7 +97,7 @@ class MovementDataModule(LightningDataModule):
 
         simple_tweets = pd.DataFrame()
         simple_tweets["date"] = pd.to_datetime(tweets["created_at"])
-        simple_tweets["text"] = tweets["text"].apply(lambda t: t.replace("\n", " "))
+        simple_tweets["text"] = tweets["text"].apply(lambda t: self._clean_tweet(t))
         simple_tweets["user_name"] = tweets["user"].apply(lambda u: u["name"])
         simple_tweets["user_followers"] = tweets["user"].apply(
             lambda u: u["followers_count"]
