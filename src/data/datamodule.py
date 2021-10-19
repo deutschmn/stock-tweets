@@ -14,14 +14,14 @@ from pytorch_lightning.core.datamodule import LightningDataModule
 
 from src.data.dataset import MovementDataset
 from src.data.movement import Movement
+from src.util.splits import DataSplit, DateRange
 
 
 class MovementDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        train_size: float,
-        val_size: float,
+        data_split: DataSplit,
         classify_threshold_up: float,
         classify_threshold_down: float,
         tweet_path: str,
@@ -35,8 +35,7 @@ class MovementDataModule(LightningDataModule):
 
         Args:
             batch_size (int): Batch size to use for train/val/test loading
-            train_size (float): Portion of data to use for training
-            val_size (float): Portion of data to use for validation
+            data_split (DataSplit): How the data is split
             classify_threshold_up (float): Threshold for when a course is classified as going UP
             classify_threshold_down (float): Threshold for when a course is classified as going DOWN
             min_followers (int): Minimum number of followers to consider a tweet from this author
@@ -49,8 +48,7 @@ class MovementDataModule(LightningDataModule):
         super().__init__()
 
         self.batch_size = batch_size
-        self.train_size = train_size
-        self.val_size = val_size
+        self.data_split = data_split
         self.classify_threshold_up = classify_threshold_up
         self.classify_threshold_down = classify_threshold_down
         self.tweet_path = tweet_path
@@ -167,7 +165,7 @@ class MovementDataModule(LightningDataModule):
                 movements = pickle.load(f)
         except:
             print(
-                "Couldn't load cached movements. Loading movements from original files."
+                "Couldn't load cached movements. Loading movements from original files..."
             )
             movements = self._load_movements_from_files()
             with open(cache_file, "wb") as f:
@@ -197,17 +195,21 @@ class MovementDataModule(LightningDataModule):
     def prepare_data(self):
         self.movements = self._load_movements()
 
-    def setup(self, stage: Optional[str] = None):
-        if stage != "fit":
-            raise NotImplementedError()
-        else:
-            X_train, rest = train_test_split(self.movements, train_size=self.train_size)
-            val_of_rest = self.val_size / (1 - self.train_size)
-            X_val, X_test = train_test_split(rest, train_size=val_of_rest)
+    def _get_movements(self, date_range: DateRange):
+        return [
+            m
+            for m in self.movements
+            if m.day >= date_range.start and m.day < date_range.end
+        ]
 
-            self.train_ds = MovementDataset(X_train)
-            self.val_ds = MovementDataset(X_val)
-            self.test_ds = MovementDataset(X_test)
+    def setup(self, stage: Optional[str] = None):
+        X_train = self._get_movements(self.data_split.train)
+        X_val = self._get_movements(self.data_split.val)
+        X_test = self._get_movements(self.data_split.test)
+
+        self.train_ds = MovementDataset(X_train)
+        self.val_ds = MovementDataset(X_val)
+        self.test_ds = MovementDataset(X_test)
 
     def _coll_samples(self, batch):
         tweets = list(map(lambda x: x[0:2], batch))

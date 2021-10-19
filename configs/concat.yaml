@@ -19,9 +19,7 @@ model:
   classify_threshold_up: &thres_up +0.007 # +0.0055
   tweet_max_len: 512
 data:
-  batch_size: 8
-  train_size: 0.8
-  val_size: 0.1
+  batch_size: 8 
   classify_threshold_down: *thres_down
   classify_threshold_up: *thres_up
   min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
@@ -29,4 +27,20 @@ data:
   time_lag: 1
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed
-  num_workers: 32
+  num_workers: 5
+  data_split: 
+    train:
+      class_path: src.util.splits.DateRange
+      init_args:
+        start: 2014-01-01
+        end: 2015-08-01
+    val:
+      class_path: src.util.splits.DateRange
+      init_args:
+        start: 2015-08-01
+        end: 2015-10-01
+    test:
+      class_path: src.util.splits.DateRange
+      init_args:
+        start: 2015-10-01
+        end: 2016-01-01
