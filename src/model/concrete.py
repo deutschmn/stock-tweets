@@ -12,3 +12,6 @@ class AttentionRegressor(AttentionMovementPredictor, RegressionMovementPredictor
 
 class ConcatClassifier(ConcatMovementPredictor, ClassificationMovementPredictor):
     pass
+
+class ConcatRegressor(ConcatMovementPredictor, RegressionMovementPredictor):
+    pass

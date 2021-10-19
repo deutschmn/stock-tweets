@@ -23,7 +23,7 @@ data:
   classify_threshold_down: *thres_down
   classify_threshold_up: *thres_up
   min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
-  min_tweets_day: 0 # should be 0 for comparison, makes training easier (likely because less data)
+  min_tweets_day: 0 # should be 0 for comparison, increasing it makes training easier (likely because less data)
   time_lag: 1
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed

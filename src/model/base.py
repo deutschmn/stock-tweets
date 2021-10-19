@@ -55,7 +55,9 @@ class MovementPredictor(LightningModule, ABC):
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(transformer_config.hugging_face_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            transformer_config.hugging_face_name
+        )
         self.transformer = AutoModelForSequenceClassification.from_pretrained(
             transformer_config.hugging_face_name
         )
@@ -113,16 +115,23 @@ class MovementPredictor(LightningModule, ABC):
 
         self.log(f"{mode}/loss", loss.item())
 
+        # TODO maybe split this up for regression and classification
+        # TODO add back in scatter plotting (for regression), maybe using
+        # > "scatter": helper.make_scatter(pred, target),
+
         if (mode != "train") or (mode == "train" and batch_idx % 10 == 0):
             logger.debug(f"{logits = }")
             logger.debug(f"{torch.sigmoid(logits) = }")
             logger.debug(f"{pred = }")
             logger.debug(f"{target = }")
             for metric_name, metric in metrics.items():
-                value = metric(pred, target)
-                # confusion only logged on epoch end
-                if metric_name != "confusion_matrix":
-                    self.log(name=f"{mode}/step/{metric_name}", value=value)
+                try:
+                    value = metric(pred, target)
+                    # confusion only logged on epoch end
+                    if metric_name != "confusion_matrix":
+                        self.log(name=f"{mode}/step/{metric_name}", value=value)
+                except Exception as e:
+                    logger.warning(f"Couldn't compute {mode}/step/{metric_name}: {e}")
 
         return loss
 
@@ -140,7 +149,10 @@ class MovementPredictor(LightningModule, ABC):
             if metric_name == "confusion_matrix":
                 self._log_confusion(mode, metric_name, metric, interval="full")
             else:
-                self.log(name=f"{mode}/full/{metric_name}", value=metric.compute())
+                try:
+                    self.log(name=f"{mode}/full/{metric_name}", value=metric.compute())
+                except Exception as e:
+                    logger.warning(f"Couldn't compute {mode}/full/{metric_name}: {e}")
 
     def _log_confusion(
         self, mode: str, metric_name: str, metric: Metric, interval: str

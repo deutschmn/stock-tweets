@@ -38,9 +38,6 @@ class ClassificationMovementPredictor(MovementPredictor):
     def setup_metrics(self) -> MetricCollection:
         num_classes = 2  # UP and DOWN
 
-        # TODO add back in scatter plotting, maybe using
-        # > "scatter": helper.make_scatter(pred, target),
-
         return MetricCollection(
             {
                 "acc": Accuracy(),
