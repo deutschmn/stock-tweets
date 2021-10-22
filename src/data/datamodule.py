@@ -1,4 +1,4 @@
-from argparse import ArgumentError
+from ctypes import ArgumentError
 from typing import List, Optional
 import json
 import os
@@ -31,7 +31,7 @@ class MovementDataModule(LightningDataModule):
         min_tweets_day: int,
         more_recent_first: bool,
         time_lag: Optional[int] = None,
-        max_lag: Optional[pd.Timedelta] = None,
+        max_lag: Optional[int] = None,
         num_workers: int = 0,
     ):
         """Inits the DataModule
@@ -45,7 +45,7 @@ class MovementDataModule(LightningDataModule):
             min_tweets_day (int): Minimum number of tweets about a stock on one day for a movement to be considered as a sample
             more_recent_first (bool): If true, more recent tweets come first, else the other way around
             time_lag (int, optional): Number of days between tweets and supposed market reaction. If None, all tweets before price date are returned.
-            max_lag (pd.Timedelta, optional): Maximum duration between tweet and price for a tweet to be considered for the movement
+            max_lag (int, optional): Maximum number of days between tweet and price for a tweet to be considered for the movement
             tweet_path (str): Path to tweet data.
             price_path (str): Path to price data.
             num_workers (int): Number of workers for the DataLoaders
@@ -157,7 +157,7 @@ class MovementDataModule(LightningDataModule):
                 relevant_tweets = tweets[tweets["date"].dt.date == tweet_day]
             else:
                 # all tweets before price day (within max_lag)
-                oldest_tweet_day = day - self.max_lag
+                oldest_tweet_day = day - pd.to_timedelta(self.max_lag, unit="days")
                 relevant_tweets = tweets[
                     (tweets["date"].dt.date < day)
                     & (tweets["date"].dt.date > oldest_tweet_day)
