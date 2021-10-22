@@ -26,6 +26,7 @@ class MovementPredictor(LightningModule, ABC):
         hidden_dim: int,
         freeze_transformer: bool,
         tweet_max_len: int,
+        test_as_second_val_loader: bool = False,
     ):
         """Inits the model
 
@@ -38,6 +39,7 @@ class MovementPredictor(LightningModule, ABC):
             hidden_dim (int): Hidden dimension to use for classification layer. If 0, no hidden layer is used
             freeze_transformer (bool): If true, freezes transformer weights, or fine-tune them otherwise
             tweet_max_len (int): Length to which tweets are truncated or padded.
+            test_as_second_val_loader (bool): If true, model expects two val data loaders, first for val and second for test
         """
         super().__init__()
 
@@ -47,6 +49,7 @@ class MovementPredictor(LightningModule, ABC):
         self.classify_threshold_up = classify_threshold_up
         self.classify_threshold_down = classify_threshold_down
         self.tweet_max_len = tweet_max_len
+        self.test_as_second_val_loader = test_as_second_val_loader
 
         self.loss = self.setup_loss()
 
@@ -138,8 +141,20 @@ class MovementPredictor(LightningModule, ABC):
     def training_step(self, batch, batch_idx):
         return self._step(batch, batch_idx, mode="train", metrics=self.train_metrics)
 
-    def validation_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, mode="val", metrics=self.val_metrics)
+    def validation_step(self, batch, batch_idx, dataloader_idx):
+        if self.test_as_second_val_loader:
+            if dataloader_idx == 0:
+                mode = "val"
+                metrics = self.val_metrics
+            elif dataloader_idx == 1:
+                mode = "test"
+                metrics = self.test_metrics
+            else:
+                raise RuntimeError("Unexpected dataloader idx {dataloader_idx}")
+        else:
+            mode = "val"
+            metrics = self.val_metrics
+        return self._step(batch, batch_idx, mode=mode, metrics=metrics)
 
     def test_step(self, batch, batch_idx):
         return self._step(batch, batch_idx, mode="test", metrics=self.test_metrics)
@@ -175,6 +190,14 @@ class MovementPredictor(LightningModule, ABC):
         )
 
     def validation_epoch_end(self, training_step_outputs):
+        if self.test_as_second_val_loader:
+            if len(training_step_outputs) != 2:
+                raise RuntimeError(
+                    f"If test_as_second_val_loader is true, outer training_step_outputs list must have len=2, but has len={len(training_step_outputs)}"
+                )
+            self._epoch_end(
+                training_step_outputs, mode="test", metrics=self.test_metrics
+            )
         return self._epoch_end(
             training_step_outputs, mode="val", metrics=self.val_metrics
         )

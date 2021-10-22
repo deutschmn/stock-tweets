@@ -3,6 +3,7 @@ from typing import List
 from loguru import logger
 import torch
 
+from src.data.movement import Tweet
 from src.model.base import MovementPredictor
 from src.model.transformer import TransformerConfig
 
@@ -18,6 +19,7 @@ class ConcatMovementPredictor(MovementPredictor):
         hidden_dim: int,
         freeze_transformer: bool,
         tweet_max_len: int,
+        test_as_second_val_loader: bool = False,
         join_token: str = " ",
     ):
         """
@@ -33,14 +35,18 @@ class ConcatMovementPredictor(MovementPredictor):
             hidden_dim,
             freeze_transformer,
             tweet_max_len,
+            test_as_second_val_loader,
         )
         self.join_token = join_token
 
-    def forward(self, model_input):
+    def forward(self, model_input: List[List[Tweet]]):
         # TODO do something smarter - take beginning of each tweet??
 
-        # join tweets of a movement together, ignore followers
-        tweets = [self.join_token.join(tweets) for tweets, _ in model_input]
+        # join tweet texts of a movement together
+        tweets = [
+            self.join_token.join([tweet.text for tweet in tweets])
+            for tweets in model_input
+        ]
 
         tweets_encd = self.tokenizer(
             tweets,

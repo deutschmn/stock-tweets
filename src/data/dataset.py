@@ -14,10 +14,4 @@ class MovementDataset(Dataset):
         return len(self.movements)
 
     def __getitem__(self, idx: int) -> Movement:
-        movement = self.movements[idx]
-
-        return (
-            list(movement.tweets["text"]),
-            list(movement.tweets["user_followers"]),
-            movement.price["movement percent"],
-        )
+        return self.movements[idx]

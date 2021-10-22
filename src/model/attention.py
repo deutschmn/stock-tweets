@@ -1,7 +1,9 @@
 from ctypes import ArgumentError
+from typing import List
 import torch
 from torch import nn
 
+from src.data.movement import Tweet
 from src.model.base import MovementPredictor
 from src.model.transformer import TransformerConfig
 
@@ -18,6 +20,7 @@ class AttentionMovementPredictor(MovementPredictor):
         freeze_transformer: bool,
         tweet_max_len: int,
         attention_input: str,
+        test_as_second_val_loader: bool = False,
     ):
         """
         Same args as MovementPredictor except:
@@ -32,6 +35,7 @@ class AttentionMovementPredictor(MovementPredictor):
             hidden_dim,
             freeze_transformer,
             tweet_max_len,
+            test_as_second_val_loader,
         )
 
         self.attention_input = attention_input
@@ -50,11 +54,9 @@ class AttentionMovementPredictor(MovementPredictor):
             nn.Linear(attention_in_dim, 1), nn.LeakyReLU(), nn.Softmax(dim=0)
         )
 
-    def _forward_movement(self, model_inputs):
-        tweets, followers = model_inputs
-
+    def _forward_movement(self, tweet: Tweet):
         tweets_encd = self.tokenizer(
-            tweets,
+            tweet.text,
             return_tensors="pt",
             padding="max_length",
             max_length=self.tweet_max_len,
@@ -62,7 +64,9 @@ class AttentionMovementPredictor(MovementPredictor):
         ).to(self.device)
 
         tweets_followers = (
-            torch.tensor(followers, dtype=torch.float).unsqueeze(dim=-1).to(self.device)
+            torch.tensor(tweet.followers, dtype=torch.float)
+            .unsqueeze(dim=-1)
+            .to(self.device)
         )
 
         tweet_reps = self.transformer(**tweets_encd).logits
@@ -79,6 +83,6 @@ class AttentionMovementPredictor(MovementPredictor):
         attention_weights = self.attention(attention_in)
         return torch.mm(tweet_reps.T, attention_weights).squeeze()
 
-    def forward(self, model_input):
+    def forward(self, model_input: List[Tweet]):
         tweet_sentiment = torch.stack(list(map(self._forward_movement, model_input)))
         return self.sentiment_classifier(tweet_sentiment).squeeze(dim=-1)

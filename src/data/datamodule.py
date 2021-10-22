@@ -1,3 +1,4 @@
+from argparse import ArgumentError
 from typing import List, Optional
 import json
 import os
@@ -28,7 +29,9 @@ class MovementDataModule(LightningDataModule):
         price_path: str,
         min_followers: int,
         min_tweets_day: int,
-        time_lag: int,
+        more_recent_first: bool,
+        time_lag: Optional[int] = None,
+        max_lag: Optional[pd.Timedelta] = None,
         num_workers: int = 0,
     ):
         """Inits the DataModule
@@ -40,7 +43,9 @@ class MovementDataModule(LightningDataModule):
             classify_threshold_down (float): Threshold for when a course is classified as going DOWN
             min_followers (int): Minimum number of followers to consider a tweet from this author
             min_tweets_day (int): Minimum number of tweets about a stock on one day for a movement to be considered as a sample
-            time_lag (int): Number of days between tweets and supposed market reaction
+            more_recent_first (bool): If true, more recent tweets come first, else the other way around
+            time_lag (int, optional): Number of days between tweets and supposed market reaction. If None, all tweets before price date are returned.
+            max_lag (pd.Timedelta, optional): Maximum duration between tweet and price for a tweet to be considered for the movement
             tweet_path (str): Path to tweet data.
             price_path (str): Path to price data.
             num_workers (int): Number of workers for the DataLoaders
@@ -55,13 +60,18 @@ class MovementDataModule(LightningDataModule):
         self.price_path = price_path
         self.min_followers = min_followers
         self.min_tweets_day = min_tweets_day
+        self.more_recent_first = more_recent_first
         self.time_lag = time_lag
+        self.max_lag = max_lag
         self.num_workers = num_workers
 
         self.movements: List[Movement] = []
         self.train_ds: Optional[MovementDataset] = None
         self.val_ds: Optional[MovementDataset] = None
         self.test_ds: Optional[MovementDataset] = None
+
+        if self.time_lag is not None and self.max_lag is not None:
+            raise ArgumentError("Cannot specify both time_lag and max_lag")
 
     def _clean_tweet(self, tweet: str):
         clean = tweet
@@ -139,17 +149,32 @@ class MovementDataModule(LightningDataModule):
         missing_prices = []
 
         for day in tqdm(prices.index.get_level_values("date").unique()):
-            day = pd.to_datetime(day) - pd.to_timedelta(self.time_lag, unit="days")
-            relevant_tweets = tweets[tweets["date"].dt.date == day]
+            day = pd.to_datetime(day)
+
+            if self.time_lag is not None:
+                # tweets from time lag day
+                tweet_day = day - pd.to_timedelta(self.time_lag, unit="days")
+                relevant_tweets = tweets[tweets["date"].dt.date == tweet_day]
+            else:
+                # all tweets before price day (within max_lag)
+                oldest_tweet_day = day - self.max_lag
+                relevant_tweets = tweets[
+                    (tweets["date"].dt.date < day)
+                    & (tweets["date"].dt.date > oldest_tweet_day)
+                ]
+
             relevant_stocks = pd.unique(list(itertools.chain(*relevant_tweets["sym"])))
             for stock in relevant_stocks:
                 rel_tweets = relevant_tweets[
                     relevant_tweets["sym"].apply(lambda x: stock in x)
                 ]
                 try:
-                    movements.append(
-                        Movement(rel_tweets, stock, prices.loc[stock, day], day)
+                    price = prices.loc[stock, day]
+                    # sort tweets
+                    rel_tweets = rel_tweets.sort_values(
+                        by="date", ascending=not self.more_recent_first
                     )
+                    movements.append(Movement(rel_tweets, stock, price, day))
                 except Exception as e:
                     missing_prices.append(e)
 
@@ -167,7 +192,15 @@ class MovementDataModule(LightningDataModule):
         return movements
 
     def _load_movements(self) -> List[Movement]:
-        cache_file = f"data/movements_{self.min_followers}_{self.min_tweets_day}_{self.time_lag}_.pickle"
+        # new cached file if any of these params changes
+        id_fields = [
+            self.min_followers,
+            self.min_tweets_day,
+            self.time_lag,
+            self.more_recent_first,
+            self.max_lag,
+        ]
+        cache_file = f"data/movements_{'_'.join(map(str, id_fields))}.pickle"
         try:
             with open(cache_file, "rb") as f:
                 movements = pickle.load(f)
@@ -219,10 +252,10 @@ class MovementDataModule(LightningDataModule):
         self.val_ds = MovementDataset(X_val)
         self.test_ds = MovementDataset(X_test)
 
-    def _coll_samples(self, batch):
-        tweets = list(map(lambda x: x[0:2], batch))
-        prices = torch.stack(list(map(lambda x: torch.tensor(x[-1]), batch))).float()
-        return tweets, prices
+    def _coll_samples(self, batch: List[Movement]):
+        model_input = [x.model_input for x in batch]
+        prices = torch.stack([torch.tensor(x.price_movement) for x in batch]).float()
+        return model_input, prices
 
     def train_dataloader(self):
         return DataLoader(
