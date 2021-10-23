@@ -2,9 +2,11 @@ from ctypes import ArgumentError
 from typing import List, Optional, Tuple
 import json
 import os
+from operator import attrgetter
 import itertools
 import pickle
 import re
+import sys
 
 import pandas as pd
 from torch.utils.data.dataloader import DataLoader
@@ -14,7 +16,13 @@ from pytorch_lightning.core.datamodule import LightningDataModule
 from loguru import logger
 
 from src.data.dataset import MovementDataset
-from src.data.movement import Direction, ModelOutput, Movement, Tweet
+from src.data.movement import (
+    Direction,
+    ModelOutput,
+    ClassifiedMovement,
+    Movement,
+    Tweet,
+)
 from src.util.splits import DataSplit, DateRange
 from src.util.stats import movement_stats
 
@@ -24,13 +32,14 @@ class MovementDataModule(LightningDataModule):
         self,
         batch_size: int,
         data_split: DataSplit,
-        classify_threshold_up: float,
-        classify_threshold_down: float,
         tweet_path: str,
         price_path: str,
         min_followers: int,
         min_tweets_day: int,
         more_recent_first: bool,
+        classify_threshold_up: Optional[float] = None,
+        classify_threshold_down: Optional[float] = None,
+        classify_threshold_min_spread: Optional[float] = None,
         time_lag: Optional[int] = None,
         max_lag: Optional[int] = None,
         num_workers: int = 0,
@@ -40,8 +49,9 @@ class MovementDataModule(LightningDataModule):
         Args:
             batch_size (int): Batch size to use for train/val/test loading
             data_split (DataSplit): How the data is split
-            classify_threshold_up (float): Threshold for when a course is classified as going UP
-            classify_threshold_down (float): Threshold for when a course is classified as going DOWN
+            classify_threshold_up (Optional[float]): Threshold for when a course is classified as going UP
+            classify_threshold_down (Optional[float]): Threshold for when a course is classified as going DOWN
+            classify_threshold_min_spread: (Optional[float]): If this is set, thresholds are determined automatically so that the train data set is balanced. This is the minimum absolute value for either up or down threshold.
             min_followers (int): Minimum number of followers to consider a tweet from this author
             min_tweets_day (int): Minimum number of tweets about a stock on one day for a movement to be considered as a sample
             more_recent_first (bool): If true, more recent tweets come first, else the other way around
@@ -57,6 +67,7 @@ class MovementDataModule(LightningDataModule):
         self.data_split = data_split
         self.classify_threshold_up = classify_threshold_up
         self.classify_threshold_down = classify_threshold_down
+        self.classify_threshold_min_spread = classify_threshold_min_spread
         self.tweet_path = tweet_path
         self.price_path = price_path
         self.min_followers = min_followers
@@ -66,10 +77,24 @@ class MovementDataModule(LightningDataModule):
         self.max_lag = max_lag
         self.num_workers = num_workers
 
-        self.movements: List[Movement] = []
+        self.movements: List[ClassifiedMovement] = []
         self.train_ds: Optional[MovementDataset] = None
         self.val_ds: Optional[MovementDataset] = None
         self.test_ds: Optional[MovementDataset] = None
+
+        if not (
+            (
+                self.classify_threshold_up is not None
+                and self.classify_threshold_down is not None
+                and self.classify_threshold_min_spread is None
+            )
+            or (
+                self.classify_threshold_up is None
+                and self.classify_threshold_down is None
+                and self.classify_threshold_min_spread is not None
+            )
+        ):
+            raise ArgumentError("Invalid classify_threshold config")
 
         if self.time_lag is not None and self.max_lag is not None:
             raise ArgumentError("Cannot specify both time_lag and max_lag")
@@ -143,14 +168,6 @@ class MovementDataModule(LightningDataModule):
         prices = prices.set_index(["symbol", "date"])
         return prices
 
-    def _classify_movement(self, price: float) -> Direction:
-        if price > self.classify_threshold_up:
-            return Direction.UP
-        elif price < self.classify_threshold_down:
-            return Direction.DOWN
-        else:
-            return Direction.SAME
-
     def _load_movements_from_files(self) -> List[Movement]:
         tweets = self._load_tweets()
         prices = self._load_prices()
@@ -183,12 +200,8 @@ class MovementDataModule(LightningDataModule):
                     rel_tweets = rel_tweets.sort_values(
                         by="date", ascending=not self.more_recent_first
                     )
-                    direction = self._classify_movement(price["movement percent"])
-                    # filter out movements that are too small (categorised as SAME)
-                    if direction != Direction.SAME:
-                        movements.append(
-                            Movement(rel_tweets, stock, price, day, direction)
-                        )
+
+                    movements.append(Movement(rel_tweets, stock, price, day))
                 except Exception as e:
                     missing_prices.append(e)
 
@@ -227,11 +240,113 @@ class MovementDataModule(LightningDataModule):
                 pickle.dump(movements, f)
 
         return movements
+    def _classify_movements(
+        self, movements: List[Movement], threshold_up: float, threshold_down: float
+    ) -> List[ClassifiedMovement]:
+        classified_movements: List[ClassifiedMovement] = []
+        for m in movements:
+            direction = (
+                Direction.UP
+                if m.price_movement >= threshold_up
+                else Direction.DOWN
+                if m.price_movement <= threshold_down
+                else Direction.SAME
+            )
+            # filter out movements that are too small (categorised as SAME)
+            if direction != Direction.SAME:
+                classified_movements.append(
+                    ClassifiedMovement(
+                        tweets=m.tweets,
+                        stock=m.stock,
+                        price=m.price,
+                        day=m.day,
+                        direction=direction,
+                    )
+                )
+        return classified_movements
+
+    def _find_thresholds(self, movements: List[Movement]) -> Tuple[float, float]:
+        nr_ups = len(
+            [
+                m
+                for m in movements
+                if m.price_movement > self.classify_threshold_min_spread
+            ]
+        )
+        nr_downs = len(
+            [
+                m
+                for m in movements
+                if m.price_movement < -self.classify_threshold_min_spread
+            ]
+        )
+
+        if nr_ups == nr_downs:
+            # already balanced
+            thres_up = self.classify_threshold_min_spread
+            thres_down = -self.classify_threshold_min_spread
+        else:
+            limit_upwards = nr_ups > nr_downs
+
+            if limit_upwards:
+                thres_up = None
+                thres_down = -self.classify_threshold_min_spread
+                down = 0
+            else:
+                thres_up = self.classify_threshold_min_spread
+                thres_down = None
+                up = 0
+
+            movements.sort(key=attrgetter("price_movement"), reverse=not limit_upwards)
+
+            total = len(movements)
+            same = 0
+
+            min_error = sys.maxsize
+            for movement in movements:
+                total_considered = total - same
+                if limit_upwards:
+                    if movement.price_movement < -self.classify_threshold_min_spread:
+                        down += 1
+                    elif movement.price_movement < self.classify_threshold_min_spread:
+                        same += 1
+                    else:
+                        up = total - down - same
+                        portion = up / total_considered
+                        error = abs(0.5 - portion)  # ideally, portion is 50%
+                        if error < min_error:
+                            min_error = error
+                            thres_up = movement.price_movement
+                            same += 1  # if we don't take this thres, this mov will count as same (in next iteration)
+                        else:
+                            break
+                else:
+                    if movement.price_movement > self.classify_threshold_min_spread:
+                        up += 1
+                    elif movement.price_movement > -self.classify_threshold_min_spread:
+                        same += 1
+                    else:
+                        down = total - up - same
+                        portion = down / total_considered
+                        error = abs(0.5 - portion)  # ideally, portion is 50%
+                        if error < min_error:
+                            min_error = error
+                            thres_down = movement.price_movement
+                            same += 1  # if we don't take this thres, this mov will count as same (in next iteration)
+                        else:
+                            break
+
+            if thres_up is None or thres_down is None:
+                raise RuntimeError(
+                    f"Couldn't find threshold, min spread of {self.classify_threshold_min_spread} exceeded"
+                )
+
+        return thres_up, thres_down
 
     def prepare_data(self):
-        self.movements = self._load_movements()
+        self.movements: List[Movement] = self._load_movements()
 
-    def _get_movements(self, date_range: DateRange):
+    def _get_movements(self, date_range: DateRange) -> List[Movement]:
         return [
             m
             for m in self.movements
@@ -239,9 +354,23 @@ class MovementDataModule(LightningDataModule):
         ]
 
     def setup(self, stage: Optional[str] = None):
-        X_train = self._get_movements(self.data_split.train)
-        X_val = self._get_movements(self.data_split.val)
-        X_test = self._get_movements(self.data_split.test)
+        X_train_unclass = self._get_movements(self.data_split.train)
+        X_val_unclass = self._get_movements(self.data_split.val)
+        X_test_unclass = self._get_movements(self.data_split.test)
+
+        if self.classify_threshold_min_spread is not None:
+            thres_up, thres_down = self._find_thresholds(X_train_unclass)
+        else:
+            thres_up, thres_down = (
+                self.classify_threshold_up,
+                self.classify_threshold_down,
+            )
+
+        logger.info(f"Thresholds for classification: {thres_up = }, {thres_down = }")
+
+        X_train = self._classify_movements(X_train_unclass, thres_up, thres_down)
+        X_val = self._classify_movements(X_val_unclass, thres_up, thres_down)
+        X_test = self._classify_movements(X_test_unclass, thres_up, thres_down)
 
         logger.info(f"{movement_stats(X_train) = }")
         logger.info(f"{movement_stats(X_val) = }")
@@ -252,7 +381,7 @@ class MovementDataModule(LightningDataModule):
         self.test_ds = MovementDataset(X_test)
 
     def _coll_samples(
-        self, batch: List[Movement]
+        self, batch: List[ClassifiedMovement]
     ) -> Tuple[List[List[Tweet]], List[ModelOutput]]:
         model_input = [x.model_input for x in batch]
         target = [x.model_output for x in batch]

@@ -19,8 +19,9 @@ model:
   test_as_second_val_loader: true
 data:
   batch_size: 8 
-  classify_threshold_down: -0.005
-  classify_threshold_up: +0.007 # +0.0055
+  classify_threshold_down: ~ # -0.005
+  classify_threshold_up: ~ # +0.007 # +0.0055
+  classify_threshold_min_spread: 0.005
   min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
   min_tweets_day: 5 # should be 0 for comparison, increasing it makes training easier (likely because less data)
   more_recent_first: true

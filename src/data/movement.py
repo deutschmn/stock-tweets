@@ -1,3 +1,4 @@
+from ctypes import ArgumentError
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import List
@@ -24,7 +25,6 @@ class Movement:
     stock: str
     price: pd.DataFrame
     day: pd.Timestamp
-    direction: Direction
 
     def __post_init__(self):
         self.price_movement: float = self.price["movement percent"]
@@ -35,6 +35,18 @@ class Movement:
                 self.tweets["text"], self.tweets["user_followers"], self.tweets["date"]
             )
         ]
+
+
+@dataclass
+class ClassifiedMovement(Movement):
+    direction: Direction
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.direction == Direction.SAME:
+            raise ArgumentError("Movement mustn't have direction SAME")
+
         self.model_output = ModelOutput(self.direction, self.price_movement)
 
 

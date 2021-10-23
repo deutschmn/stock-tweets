@@ -1,9 +1,9 @@
 from typing import List
 
-from src.data.movement import Movement
+from src.data.movement import ClassifiedMovement
 
 
-def movement_stats(movements: List[Movement]) -> str:
+def movement_stats(movements: List[ClassifiedMovement]) -> str:
     """Returns direction stats for a list of movements"""
     dirs = [m.direction for m in movements]
     total = len(dirs)
