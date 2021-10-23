@@ -1,3 +1,4 @@
+from typing import List
 from torch import nn
 import torch
 from torchmetrics import (
@@ -9,31 +10,18 @@ from torchmetrics import (
     MetricCollection,
     MatthewsCorrcoef,
 )
+from src.data.movement import ModelOutput
 from src.model.base import MovementPredictor
 
 
 class ClassificationMovementPredictor(MovementPredictor):
-    def _classify_movement(self, movements):
-        classes = torch.full_like(
-            movements, fill_value=float("nan"), device=self.device
-        )
-
-        classes[movements > self.classify_threshold_up] = 1
-        classes[movements < self.classify_threshold_down] = 0
-
-        if torch.isnan(classes).any():
-            raise RuntimeError(
-                "Found NaN: movement inside of exclusion region detected"
-            )
-
-        return classes
-
     def setup_loss(self) -> nn.Module:
         return nn.BCEWithLogitsLoss()
 
-    def preprocess_targets(self, target: torch.Tensor) -> torch.Tensor:
-        # for classification, movements need to be classified for the loss
-        return self._classify_movement(target)
+    def preprocess_targets(self, target: List[ModelOutput]) -> torch.Tensor:
+        return torch.stack(
+            [torch.tensor(x.direction, device=self.device) for x in target]
+        ).float()
 
     def setup_metrics(self) -> MetricCollection:
         num_classes = 2  # UP and DOWN

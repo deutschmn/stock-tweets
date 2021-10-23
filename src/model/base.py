@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 from pytorch_lightning.core.lightning import LightningModule
 from abc import ABC, abstractmethod
 
@@ -11,6 +11,7 @@ from transformers import AutoModelForSequenceClassification
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 import wandb
 
+from src.data.movement import ModelOutput
 from src.util.plotting import plot_confusion
 from src.model.transformer import TransformerConfig
 
@@ -20,8 +21,6 @@ class MovementPredictor(LightningModule, ABC):
         self,
         optim: str,
         lr: float,
-        classify_threshold_up: float,
-        classify_threshold_down: float,
         transformer_config: TransformerConfig,
         hidden_dim: int,
         freeze_transformer: bool,
@@ -33,8 +32,6 @@ class MovementPredictor(LightningModule, ABC):
         Args:
             optim (str): Name of torch.optim.* optimizer to use
             lr (float): Learning rate to use for the optimiser
-            classify_threshold_up (float): Threshold for when a course is classified as going UP
-            classify_threshold_down (float): Threshold for when a course is classified as going DOWN
             transformer_config (TransformerConfig): Config for the transformer
             hidden_dim (int): Hidden dimension to use for classification layer. If 0, no hidden layer is used
             freeze_transformer (bool): If true, freezes transformer weights, or fine-tune them otherwise
@@ -46,8 +43,6 @@ class MovementPredictor(LightningModule, ABC):
         self.transformer_config = transformer_config
         self.optim = optim
         self.lr = lr
-        self.classify_threshold_up = classify_threshold_up
-        self.classify_threshold_down = classify_threshold_down
         self.tweet_max_len = tweet_max_len
         self.test_as_second_val_loader = test_as_second_val_loader
 
@@ -83,7 +78,7 @@ class MovementPredictor(LightningModule, ABC):
         pass
 
     @abstractmethod
-    def preprocess_targets(self, target: torch.Tensor) -> torch.Tensor:
+    def preprocess_targets(self, target: List[ModelOutput]) -> torch.Tensor:
         """Processes targets before loss computation"""
         pass
 
@@ -106,9 +101,9 @@ class MovementPredictor(LightningModule, ABC):
         pass
 
     def _step(self, batch: Any, batch_idx: int, mode: str, metrics: MetricCollection):
-        tweets, target = batch
+        model_input, target = batch
 
-        logits = self(tweets)
+        logits = self(model_input)
         target = self.preprocess_targets(target)
 
         loss = self.loss(logits, target)

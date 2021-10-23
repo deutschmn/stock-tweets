@@ -13,8 +13,6 @@ class AttentionMovementPredictor(MovementPredictor):
         self,
         optim: str,
         lr: float,
-        classify_threshold_up: float,
-        classify_threshold_down: float,
         transformer_config: TransformerConfig,
         hidden_dim: int,
         freeze_transformer: bool,
@@ -29,8 +27,6 @@ class AttentionMovementPredictor(MovementPredictor):
         super().__init__(
             optim,
             lr,
-            classify_threshold_up,
-            classify_threshold_down,
             transformer_config,
             hidden_dim,
             freeze_transformer,

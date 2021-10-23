@@ -1,5 +1,5 @@
 from ctypes import ArgumentError
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import json
 import os
 import itertools
@@ -7,15 +7,16 @@ import pickle
 import re
 
 import pandas as pd
-import torch
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 import pandas as pd
 from pytorch_lightning.core.datamodule import LightningDataModule
+from loguru import logger
 
 from src.data.dataset import MovementDataset
-from src.data.movement import Movement
+from src.data.movement import Direction, ModelOutput, Movement, Tweet
 from src.util.splits import DataSplit, DateRange
+from src.util.stats import movement_stats
 
 
 class MovementDataModule(LightningDataModule):
@@ -142,6 +143,14 @@ class MovementDataModule(LightningDataModule):
         prices = prices.set_index(["symbol", "date"])
         return prices
 
+    def _classify_movement(self, price: float) -> Direction:
+        if price > self.classify_threshold_up:
+            return Direction.UP
+        elif price < self.classify_threshold_down:
+            return Direction.DOWN
+        else:
+            return Direction.SAME
+
     def _load_movements_from_files(self) -> List[Movement]:
         tweets = self._load_tweets()
         prices = self._load_prices()
@@ -174,7 +183,12 @@ class MovementDataModule(LightningDataModule):
                     rel_tweets = rel_tweets.sort_values(
                         by="date", ascending=not self.more_recent_first
                     )
-                    movements.append(Movement(rel_tweets, stock, price, day))
+                    direction = self._classify_movement(price["movement percent"])
+                    # filter out movements that are too small (categorised as SAME)
+                    if direction != Direction.SAME:
+                        movements.append(
+                            Movement(rel_tweets, stock, price, day, direction)
+                        )
                 except Exception as e:
                     missing_prices.append(e)
 
@@ -212,26 +226,7 @@ class MovementDataModule(LightningDataModule):
             with open(cache_file, "wb") as f:
                 pickle.dump(movements, f)
 
-        # print some direction stats
-        directions = map(
-            lambda m: -1
-            if (m.price["movement percent"] < self.classify_threshold_down)
-            else +1
-            if (m.price["movement percent"] > self.classify_threshold_up)
-            else 0,
-            movements,
-        )
-        print("Movement distribution:")
-        print(pd.Series(list(directions)).value_counts())
-
-        # filter out movements that are too small
-        return list(
-            filter(
-                lambda m: (m.price["movement percent"] < self.classify_threshold_down)
-                or (m.price["movement percent"] > self.classify_threshold_up),
-                movements,
-            )
-        )
+        return movements
 
     def prepare_data(self):
         self.movements = self._load_movements()
@@ -248,14 +243,20 @@ class MovementDataModule(LightningDataModule):
         X_val = self._get_movements(self.data_split.val)
         X_test = self._get_movements(self.data_split.test)
 
+        logger.info(f"{movement_stats(X_train) = }")
+        logger.info(f"{movement_stats(X_val) = }")
+        logger.info(f"{movement_stats(X_test) = }")
+
         self.train_ds = MovementDataset(X_train)
         self.val_ds = MovementDataset(X_val)
         self.test_ds = MovementDataset(X_test)
 
-    def _coll_samples(self, batch: List[Movement]):
+    def _coll_samples(
+        self, batch: List[Movement]
+    ) -> Tuple[List[List[Tweet]], List[ModelOutput]]:
         model_input = [x.model_input for x in batch]
-        prices = torch.stack([torch.tensor(x.price_movement) for x in batch]).float()
-        return model_input, prices
+        target = [x.model_output for x in batch]
+        return model_input, target
 
     def train_dataloader(self):
         return DataLoader(

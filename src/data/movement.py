@@ -1,7 +1,14 @@
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import List
 
 import pandas as pd
+
+
+class Direction(IntEnum):
+    UP = 1  # price goes up
+    DOWN = 0  # price goes down
+    SAME = -1  # price stays the same
 
 
 @dataclass
@@ -17,13 +24,23 @@ class Movement:
     stock: str
     price: pd.DataFrame
     day: pd.Timestamp
+    direction: Direction
 
     def __post_init__(self):
+        self.price_movement: float = self.price["movement percent"]
+
         self.model_input: List[Tweet] = [
             Tweet(text, followers, date)
             for (text, followers, date) in zip(
                 self.tweets["text"], self.tweets["user_followers"], self.tweets["date"]
             )
         ]
+        self.model_output = ModelOutput(self.direction, self.price_movement)
 
-        self.price_movement: pd.Series = self.price["movement percent"]
+
+@dataclass
+class ModelOutput:
+    """Stores the labels for a sample (direction for classification, price_movement for regression)"""
+
+    direction: Direction
+    price_movement: float

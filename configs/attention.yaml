@@ -15,16 +15,14 @@ model:
     class_path: src.model.transformer.BertBaseMultilingualUncasedSentiment
   freeze_transformer: False
   hidden_dim: 64
-  classify_threshold_down: &thres_down -0.005
-  classify_threshold_up: &thres_up +0.007 # +0.0055
   attention_input: both # followers # sentiment
   tweet_max_len: 60 # 100 # TODO revisit
 data:
   batch_size: 1
   train_size: 0.8
   val_size: 0.1
-  classify_threshold_down: *thres_down
-  classify_threshold_up: *thres_up
+  classify_threshold_down: -0.005
+  classify_threshold_up: +0.007 # +0.0055
   min_followers: 100  # TODO try multiple values
   min_tweets_day: 5
   time_lag: 1

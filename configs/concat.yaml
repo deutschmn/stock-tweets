@@ -15,14 +15,12 @@ model:
     class_path: src.model.transformer.BertBaseMultilingualUncasedSentiment
   freeze_transformer: False
   hidden_dim: 64
-  classify_threshold_down: &thres_down -0.005
-  classify_threshold_up: &thres_up +0.007 # +0.0055
   tweet_max_len: 512
   test_as_second_val_loader: true
 data:
   batch_size: 8 
-  classify_threshold_down: *thres_down
-  classify_threshold_up: *thres_up
+  classify_threshold_down: -0.005
+  classify_threshold_up: +0.007 # +0.0055
   min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
   min_tweets_day: 5 # should be 0 for comparison, increasing it makes training easier (likely because less data)
   more_recent_first: true
