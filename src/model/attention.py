@@ -50,9 +50,9 @@ class AttentionMovementPredictor(MovementPredictor):
             nn.Linear(attention_in_dim, 1), nn.LeakyReLU(), nn.Softmax(dim=0)
         )
 
-    def _forward_movement(self, tweet: Tweet):
+    def _forward_movement(self, tweets: List[Tweet]):
         tweets_encd = self.tokenizer(
-            tweet.text,
+            [t.text for t in tweets],
             return_tensors="pt",
             padding="max_length",
             max_length=self.tweet_max_len,
@@ -60,7 +60,7 @@ class AttentionMovementPredictor(MovementPredictor):
         ).to(self.device)
 
         tweets_followers = (
-            torch.tensor(tweet.followers, dtype=torch.float)
+            torch.tensor([t.followers for t in tweets], dtype=torch.float)
             .unsqueeze(dim=-1)
             .to(self.device)
         )
@@ -79,6 +79,6 @@ class AttentionMovementPredictor(MovementPredictor):
         attention_weights = self.attention(attention_in)
         return torch.mm(tweet_reps.T, attention_weights).squeeze()
 
-    def forward(self, model_input: List[Tweet]):
+    def forward(self, model_input: List[List[Tweet]]):
         tweet_sentiment = torch.stack(list(map(self._forward_movement, model_input)))
         return self.sentiment_classifier(tweet_sentiment).squeeze(dim=-1)
