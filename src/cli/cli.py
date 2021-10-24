@@ -7,7 +7,8 @@ class MovementCLI(ConfigWandbMixin, LightningCLI):
     def fit(self):
         super().fit()
 
-        # always test after fit
+        # always test after fit (and reset fit kwargs to default first)
+        super().prepare_fit_kwargs()
         self.trainer.test(**self.fit_kwargs)
 
     def prepare_fit_kwargs(self):
