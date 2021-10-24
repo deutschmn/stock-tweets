@@ -10,6 +10,9 @@ python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.
 python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.time_lag=0 --data.max_lag=null
 python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.time_lag=1 --data.max_lag=null
 
-python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.max_lag=5
-python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.max_lag=10
-python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.max_lag=100
+python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.time_lag=null --data.max_lag=5
+python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.time_lag=null --data.max_lag=10
+python -m src.experiments.classifier_concat --config=configs/concat.yaml --data.time_lag=null --data.max_lag=20
+
+python -m src.experiments.classifier_concat --config=configs/concat.yaml --model.transformer_config.class_path=src.model.transformer.TwitterRobertaBaseSentiment
+python -m src.experiments.classifier_concat --config=configs/concat.yaml --model.transformer_config.class_path=src.model.transformer.AlbertBase

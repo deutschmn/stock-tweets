@@ -37,6 +37,11 @@ class MovementDataModule(LightningDataModule):
         min_followers: int,
         min_tweets_day: int,
         more_recent_first: bool,
+        clean_new_lines: bool,
+        clean_urls: bool,
+        clean_cashtags: bool,
+        clean_multiple_spaces: bool,
+        remove_duplicates: bool,
         classify_threshold_up: Optional[float] = None,
         classify_threshold_down: Optional[float] = None,
         classify_threshold_min_spread: Optional[float] = None,
@@ -55,6 +60,11 @@ class MovementDataModule(LightningDataModule):
             min_followers (int): Minimum number of followers to consider a tweet from this author
             min_tweets_day (int): Minimum number of tweets about a stock on one day for a movement to be considered as a sample
             more_recent_first (bool): If true, more recent tweets come first, else the other way around
+            clean_new_lines (bool): If true, new lines in tweet texts are removed
+            clean_urls (bool): If true, URLs in tweet texts are removed
+            clean_cashtags (bool): If true, cashtags in tweet texts are removed
+            clean_multiple_spaces (bool): If true, multiple spaces in tweet texts are reduced to one
+            remove_duplicates (bool): If true, duplicate tweets are removed
             time_lag (int, optional): Number of days between tweets and supposed market reaction. If None, all tweets before price date are returned.
             max_lag (int, optional): Maximum number of days between tweet and price for a tweet to be considered for the movement
             tweet_path (str): Path to tweet data.
@@ -65,6 +75,11 @@ class MovementDataModule(LightningDataModule):
 
         self.batch_size = batch_size
         self.data_split = data_split
+        self.clean_new_lines = clean_new_lines
+        self.clean_urls = clean_urls
+        self.clean_cashtags = clean_cashtags
+        self.clean_multiple_spaces = clean_multiple_spaces
+        self.remove_duplicates = remove_duplicates
         self.classify_threshold_up = classify_threshold_up
         self.classify_threshold_down = classify_threshold_down
         self.classify_threshold_min_spread = classify_threshold_min_spread
@@ -102,8 +117,14 @@ class MovementDataModule(LightningDataModule):
     def _clean_tweet(self, tweet: str):
         clean = tweet
 
-        clean = clean.replace("\n", " ")  # remove new lines
-        clean = re.sub(r"http\S+", "", clean)  # remove urls
+        if self.clean_new_lines:
+            clean = clean.replace("\n", " ")
+        if self.clean_urls:
+            clean = re.sub(r"http\S+", "", clean)
+        if self.clean_cashtags:
+            clean = re.sub(r"\$\w+", "", clean)
+        if self.clean_multiple_spaces:
+            clean = re.sub(r"\s\s+", " ", clean)
 
         return clean
 
@@ -141,6 +162,14 @@ class MovementDataModule(LightningDataModule):
         simple_tweets["sym"] = tweets["entities"].apply(
             lambda entities: list(map(lambda s: s["text"], entities["symbols"]))
         )
+
+        if self.remove_duplicates:
+            # temporary column to consider in drop_duplicates
+            simple_tweets["sym_cat"] = simple_tweets["sym"].apply(lambda x: ",".join(x))
+            simple_tweets = simple_tweets.drop_duplicates(
+                subset=["text", "date", "sym_cat"]
+            )
+            simple_tweets = simple_tweets.drop("sym_cat", axis=1)
 
         return simple_tweets
 
@@ -226,6 +255,11 @@ class MovementDataModule(LightningDataModule):
             self.time_lag,
             self.more_recent_first,
             self.max_lag,
+            self.clean_new_lines,
+            self.clean_urls,
+            self.clean_cashtags,
+            self.clean_multiple_spaces,
+            self.remove_duplicates,
         ]
         cache_file = f"data/movements_{'_'.join(map(str, id_fields))}.pickle"
         try:
@@ -240,6 +274,7 @@ class MovementDataModule(LightningDataModule):
                 pickle.dump(movements, f)
 
         return movements
+
     def _classify_movements(
         self, movements: List[Movement], threshold_up: float, threshold_down: float
     ) -> List[ClassifiedMovement]:
