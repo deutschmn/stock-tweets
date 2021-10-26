@@ -5,7 +5,7 @@ trainer:
       init_args:
         project: stock-tweets
         log_model: false
-  max_epochs: 15
+  max_epochs: 50
   log_every_n_steps: 1
   gpus: 1
 model:
@@ -16,20 +16,27 @@ model:
   freeze_transformer: False
   hidden_dim: 64
   attention_input: both # followers # sentiment
+  max_num_tweets: 50 
   tweet_max_len: 60 # 100 # TODO revisit
   test_as_second_val_loader: true
 data:
   batch_size: 1
-  classify_threshold_down: -0.005
-  classify_threshold_up: +0.007 # +0.0055
+  classify_threshold_down: ~ # -0.005
+  classify_threshold_up: ~ # +0.007 # +0.0055
+  classify_threshold_min_spread: 0.005
   min_followers: 0 # 100  # TODO try multiple values
   min_tweets_day: 5
   more_recent_first: true
-  time_lag: 0
+  time_lag: 2
   max_lag: ~
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed
   num_workers: 5
+  clean_new_lines: true
+  clean_urls: true
+  clean_cashtags: true
+  clean_multiple_spaces: true
+  remove_duplicates: true
   data_split: 
     train:
       class_path: src.util.splits.DateRange

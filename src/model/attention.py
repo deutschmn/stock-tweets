@@ -1,5 +1,5 @@
 from ctypes import ArgumentError
-from typing import List
+from typing import List, Optional
 import torch
 from torch import nn
 
@@ -18,11 +18,13 @@ class AttentionMovementPredictor(MovementPredictor):
         freeze_transformer: bool,
         tweet_max_len: int,
         attention_input: str,
+        max_num_tweets: Optional[int] = None,
         test_as_second_val_loader: bool = False,
     ):
         """
         Same args as MovementPredictor except:
             attention_input (str): which inputs to use for the attention ('followers', 'sentiment' or 'both')
+            max_num_tweets (Optional[int]): If specified, num of tweets that are considered is limited to this
         """
         super().__init__(
             optim,
@@ -35,6 +37,7 @@ class AttentionMovementPredictor(MovementPredictor):
         )
 
         self.attention_input = attention_input
+        self.max_num_tweets = max_num_tweets
 
         if attention_input == "sentiment":
             attention_in_dim = transformer_config.out_dim
@@ -51,6 +54,9 @@ class AttentionMovementPredictor(MovementPredictor):
         )
 
     def _forward_movement(self, tweets: List[Tweet]):
+        if self.max_num_tweets is not None:
+            tweets = tweets[:self.max_num_tweets]
+
         tweets_encd = self.tokenizer(
             [t.text for t in tweets],
             return_tensors="pt",
