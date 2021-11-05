@@ -174,8 +174,10 @@ class MovementPredictor(LightningModule, ABC):
                     plot_confusion(
                         metric.compute().detach().cpu().numpy(),
                         confusion_type="absolute",
+                        epoch=self.current_epoch,
                     )
-                )
+                ),
+                "epoch": self.current_epoch,
             }
         )
 

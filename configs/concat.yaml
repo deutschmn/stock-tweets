@@ -25,7 +25,7 @@ data:
   min_followers: 0  # should be 0 for comparison, doesn't seem to have a big effect
   min_tweets_day: 5 # should be 0 for comparison, increasing it makes training easier (likely because less data)
   more_recent_first: true
-  time_lag: 0
+  time_lag: 2
   max_lag: ~
   tweet_path: data/tweet/raw
   price_path: data/price/preprocessed

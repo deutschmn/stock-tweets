@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sn
 
-def plot_confusion(confusion_matrix: np.ndarray, confusion_type: str):
+def plot_confusion(confusion_matrix: np.ndarray, confusion_type: str, epoch: int):
     """Plots a confusion matrix
 
     Args:
@@ -28,14 +28,14 @@ def plot_confusion(confusion_matrix: np.ndarray, confusion_type: str):
     )
 
     if confusion_type == "absolute":
-        plt.title("Absolute confusion")
+        plt.title(f"Absolute confusion ({epoch = })")
         fmt = "g"
     elif confusion_type == "precision":
-        plt.title("Relative confusion (diag = precision)")
+        plt.title(f"Relative confusion (diag = precision, {epoch = })")
         df_cm = df_cm.divide(df_cm.sum(axis=0), axis="columns") * 100
         fmt = ".1f"
     elif confusion_type == "recall":
-        plt.title("Relative confusion (diag = recall)")
+        plt.title(f"Relative confusion (diag = recall, {epoch = })")
         df_cm = df_cm.divide(df_cm.sum(axis=1), axis="rows") * 100
         fmt = ".1f"
     else:
